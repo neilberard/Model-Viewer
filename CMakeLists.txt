@@ -16,8 +16,8 @@ add_executable(Model-Viewer ${SOURCES})
 
 
 #  SPDLOG
-add_subdirectory(vendor/spdlog bin)
+#add_subdirectory(vendor/spdlog bin)
 
 #  ASSIMP
-add_subdirectory(vendor/assimp)
+add_subdirectory(extern/assimp)
 
