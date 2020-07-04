@@ -1,4 +1,4 @@
-#Auther: Neil Berard
+#Author: Neil Berard 
 cmake_minimum_required(VERSION 3.10)
 
 add_definitions(-DASSIMP_BUILD_STATIC_LIB=ON)
@@ -18,6 +18,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../bin)
 project(Model-Viewer)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Model-Viewer)
 
+
+# SOURCES
 file(GLOB SOURCES src/*.cpp INCLUDES src/*.h)
 add_executable(Model-Viewer ${SOURCES})
 
@@ -25,8 +27,10 @@ add_executable(Model-Viewer ${SOURCES})
 #  SPDLOG
 #add_subdirectory(vendor/spdlog bin)
 
-#  ASSIMP
+#  CMAKE BUILD 
 add_subdirectory(extern/assimp)
+add_subdirectory(extern/glfw)
+add_subdirectory(extern/glew/build/cmake)
 
 set_target_properties( assimp
     PROPERTIES
@@ -41,5 +45,9 @@ add_dependencies(Model-Viewer assimp)
 #Link Libraries
 target_link_libraries(Model-Viewer debug "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp/Debug/assimp-vc141-mtd.lib")
 
-
-include_directories(${MyProject_SOURCE_DIR}extern/assimp/include ${MyProject_SOURCE_DIR}extern/glm ${MyProject_SOURCE_DIR}build/extern/assimp/include)
+#INCLUDES
+include_directories(${MyProject_SOURCE_DIR}extern/assimp/include 
+					${MyProject_SOURCE_DIR}extern/glm ${MyProject_SOURCE_DIR}build/extern/assimp/include
+					${MyProject_SOURCE_DIR}extern # IMGUI 
+					${MyProject_SOURCE_DIR}extern/glfw/include
+					${MyProject_SOURCE_DIR}extern/glew/include)
