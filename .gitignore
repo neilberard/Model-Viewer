@@ -27,5 +27,5 @@
 /.vs
 
 # Submodules / External Libraries
-/extern/*
-!/extern/glew/
+#/extern/*
+#!/extern/glew/
