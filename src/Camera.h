@@ -1,7 +1,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-//#define GLEW_STATIC
+
 
 
 #include <vector>

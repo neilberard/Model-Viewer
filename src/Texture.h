@@ -1,10 +1,10 @@
 #ifndef _TEXTURE_H
 #define _TEXTURE_H
 
+
 #include "Debugging.h"
 #include <string>
-#include "stb_image/stb_image.h"
-//#include "Renderer.h"
+#include "stb/stb_image.h"
 
 
 class Skybox

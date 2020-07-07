@@ -14,3 +14,6 @@
 	path = extern/glfw
 	url = https://github.com/glfw/glfw.git
 	ignore = dirty
+[submodule "extern/stb"]
+	path = extern/stb
+	url = https://github.com/nothings/stb.git

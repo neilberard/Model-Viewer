@@ -1,4 +1,6 @@
-//#include <gl/glew.h>
+#include "Debugging.h"
+#include <iostream>
+#include <gl/glew.h>
 #include <GLFW/glfw3.h>
 #include "Debugging.h"
 #include "Model.h"
@@ -8,7 +10,7 @@
 #include "imgui/examples/imgui_impl_glfw.h"
 #include "imgui/examples/imgui_impl_opengl3.h"
 #include <windows.h>
-//#include <commdlg.h>
+#include <commdlg.h> //No idea what the fuck this is
 #include <iostream>
 #include "Camera.h"
 #include "Texture.h"
@@ -16,6 +18,15 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+
+
+//int main(int argc, char *argv[])
+//{
+//	std::cin.get();
+//	return 1;
+//}
+
+
 
 
 enum DrawMode
@@ -109,7 +120,7 @@ void SetShadingMode(DrawMode mode)
 	drawMode = mode;
 	if (drawMode == draw_normal)
 	{
-		
+
 	}
 
 
@@ -200,7 +211,7 @@ int main(void)
 	glDepthFunc(GL_LEQUAL);
 
 	// DRAW MODE OPTIONS TODO: figure out how to convert this to an enum
-	const char* items[]{ "Diffuse", "Normal", "Wireframe", "ZDepth"};
+	const char* items[]{ "Diffuse", "Normal", "Wireframe", "ZDepth" };
 	static int selectedItem = 0;
 
 
@@ -224,9 +235,9 @@ int main(void)
 			shader.SetUniform1i("u_DrawMode", 0);
 			assimpModel.Draw(GL_FILL);
 		}
-		
-		if(selectedItem == 1)
-		{ 
+
+		if (selectedItem == 1)
+		{
 			shader.SetUniform1i("u_DrawMode", 1);
 			shader.SetUniform1i("u_Wireframe", 0);
 			assimpModel.Draw(GL_FILL);
@@ -304,7 +315,7 @@ int main(void)
 		//shader.SetUniformMat4f("u_MVP", tMatrix * myrot * myrot2 * proj);
 		shader.SetUniformMat4f("u_MVP", mvp);
 		shader.SetUniformMat4f("u_ModelMatrix", myrot);
-		
+
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
 
@@ -330,17 +341,17 @@ void DoMovement()
 	{
 		camera.ProcessKeyboard(FORWARD, deltaTime);
 	}
-	
+
 	if (keys[GLFW_KEY_S] || keys[GLFW_KEY_DOWN])
 	{
 		camera.ProcessKeyboard(BACKWARD, deltaTime);
 	}
-	
+
 	if (keys[GLFW_KEY_A] || keys[GLFW_KEY_LEFT])
 	{
 		camera.ProcessKeyboard(LEFT, deltaTime);
 	}
-	
+
 	if (keys[GLFW_KEY_D] || keys[GLFW_KEY_RIGHT])
 	{
 		camera.ProcessKeyboard(RIGHT, deltaTime);
@@ -349,7 +360,7 @@ void DoMovement()
 
 void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
-	if (key  == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}

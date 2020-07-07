@@ -1,7 +1,7 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <glfw3.h>
+#include <glfw/glfw3.h>
 #include <unordered_map>
 
 #include <iostream>

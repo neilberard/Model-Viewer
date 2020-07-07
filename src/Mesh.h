@@ -3,11 +3,9 @@
 #define MESH_H
 
 #include "Debugging.h"
-#include <glm/vec3.hpp>
-#include <glm/vec2.hpp>
+#include "glm/glm.hpp"
 #include <string>
 #include <vector>
-#include "Shader.h"
 #include "Debugging.h"
 
 //Logger Log;
