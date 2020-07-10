@@ -69,6 +69,21 @@ GLint Shader::GetUniformLocation(const std::string& name)
 
 ShaderProgramSource Shader::ParseShader(const std::string& filepath)
 {
+
+	//Check if file exists!
+	if (FILE *file = fopen(filepath.c_str(), "r"))
+	{
+		fclose(file);
+	}
+	else 
+	{
+		printf("\nCould not find shader! Check file path! %s\n", filepath);
+		//__debugbreak();
+	
+	}
+
+
+
 	std::ifstream stream(filepath);
 	std::string line;
 	std::stringstream ss[2];

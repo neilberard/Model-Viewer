@@ -33,7 +33,7 @@ file(GLOB SOURCES src/*.cpp extern/imgui/*. INCLUDES src/*.h)
 #add_executable(Model-Viewer ${SOURCES})
 
 # IMGUI
-set(SOURCE_LIST
+set(IMGUI_SOURCE_LIST
 	"extern/imgui/imconfig.h"
 	"extern/imgui/imgui_internal.h"
 	"extern/imgui/imstb_textedit.h"
@@ -50,9 +50,14 @@ set(SOURCE_LIST
 	"extern/imgui/examples/imgui_impl_opengl3.cpp"
 	)
 	
-add_executable(Model-Viewer ${SOURCE_LIST} ${SOURCES})
+# GLM
+set(GLM_SOURCE_LIST
+	"extern/glm/glm/glm.hpp"
+	)
+	
+add_executable(Model-Viewer ${IMGUI_SOURCE_LIST} ${SOURCES} ${GLM_SOURCE_LIST})
 #add_subdirectory(extern/imgui)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${IMGUI_SOURCE_LIST})
 
 
 

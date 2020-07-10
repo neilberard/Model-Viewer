@@ -10,7 +10,7 @@
 #include "imgui/examples/imgui_impl_glfw.h"
 #include "imgui/examples/imgui_impl_opengl3.h"
 #include <windows.h>
-#include <commdlg.h> //No idea what the fuck this is
+/*#include <commdlg.h>*/ //No idea what the fuck this is
 #include <iostream>
 #include "Camera.h"
 #include "Texture.h"
@@ -261,8 +261,6 @@ int main(void)
 			shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
 			assimpModel.Draw(GL_FILL);
 		}
-
-
 
 
 		ImGui_ImplOpenGL3_NewFrame();
