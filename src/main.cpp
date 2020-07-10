@@ -166,7 +166,7 @@ int main(void)
 	LOGGER->log("Running OPENGL %d", 10);
 	printf("%s", glGetString(GL_VERSION));
 
-	Shader shader("resources/shaders/lambert.glsl");
+	Shader shader("../../resources/shaders/lambert.glsl");
 	shader.Bind();
 
 	// GET EXE DIRECTORY
