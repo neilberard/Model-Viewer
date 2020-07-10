@@ -108,7 +108,7 @@ target_link_libraries(Model-Viewer
 						
 						
 						debug "${CMAKE_CURRENT_SOURCE_DIR}/extern/glew/lib/glew32s.lib"
-						debug "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/glfw/Debug/glfw3ddll.lib"
+						debug "${CMAKE_CURRENT_SOURCE_DIR}/bin/Debug/glfw3ddll.lib"
 						
 						general "opengl32.lib"
 						
