@@ -1,10 +1,13 @@
 # Model-Viewer
 
 
+Simple OpenGL model viewer. Supports importing FBX models.  
 
-Simple OpenGL model viewer. Supports importing FBX and OBJ models using cmake.  
+This is pet project based on the following tutorials online:
 
-This is pet project based on following tutorials online.
+https://learnopengl.com/
+https://www.youtube.com/channel/UCQ-W1KE9EYfdxhL6S4twUNw
+
 
 To clone with submodules use:
 git clone --recurse-submodules "https://github.com/neilberard/Model-Viewer.git"
