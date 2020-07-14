@@ -2,6 +2,7 @@ mkdir build
 cd build
 cmake ..
 cmake cd ..
-cmake --build .
 
+cmake --build . --config Release
+cmake --build . --config Debug
 PAUSE

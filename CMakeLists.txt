@@ -74,13 +74,10 @@ add_executable(Model-Viewer ${IMGUI_SOURCE_LIST} ${MODEL_VIEWER_SOURCE_LIST} ${G
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${IMGUI_SOURCE_LIST} ${GLM_SOURCE_LIST})
 
 
-
-#  SPDLOG
-#add_subdirectory(vendor/spdlog bin)
-
 #  CMAKE BUILD 
 add_subdirectory(extern/assimp)
 add_subdirectory(extern/glfw)
+add_subdirectory(extern/spdlog)
 
 # MODEL-VIEWER 
 set_target_properties(	Model-Viewer 
@@ -89,13 +86,6 @@ set_target_properties(	Model-Viewer
 
 
 
-# ASSIMP OUTPUT
-set_target_properties( assimp IrrXML zlibstatic
-    PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp"
-)
 
 
 # GLFW OUTPUT
@@ -108,39 +98,31 @@ set_target_properties( glfw
 
 
 # Dependencies 
-add_dependencies(Model-Viewer assimp)
-add_dependencies(Model-Viewer glfw)
-add_dependencies(Model-Viewer IrrXML)
-add_dependencies(Model-Viewer zlibstatic)
-
-
-#Link Directories
-# link_directories("${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp/Debug/"
-				 # "${CMAKE_CURRENT_SOURCE_DIR}/extern/glew/lib/release/Win32/"
-				 # "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/glfw/debug/")
-
+add_dependencies(Model-Viewer assimp glfw IrrXML zlibstatic spdlog)
 
 #Link Libraries "general" = both debug/release "optimized" = release
 target_link_libraries(Model-Viewer
 
 						# ASSIMP DEBUG LINK 
-						debug "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp/Debug/assimp-vc141-mtd.lib"
-						debug "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp/Debug/IrrXMLd.lib"
-						debug "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp/Debug/zlibstaticd.lib"
+						debug "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Debug/assimp-vc141-mtd.lib"
+						debug "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Debug/IrrXMLd.lib"
+						debug "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Debug/zlibstaticd.lib"
 						
 						
 						debug "${CMAKE_CURRENT_SOURCE_DIR}/extern/glew/lib/glew32s.lib"
 						debug "${CMAKE_CURRENT_SOURCE_DIR}/bin/Debug/glfw3ddll.lib"
+                        debug "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/bin/Debug/spdlogd.lib"
 						
 						general "opengl32.lib"
 						
 						# ASSIMP RELEASE LINK
-						optimized "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp/Release/assimp-vc141-mt.lib"
-						optimized "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp/Release/IrrXML.lib"
-						optimized "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/assimp/Release/zlibstatic.lib"							
+						optimized "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Release/assimp-vc141-mt.lib"
+						optimized "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Release/IrrXML.lib"
+						optimized "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Release/zlibstatic.lib"							
 						
 						optimized "${CMAKE_CURRENT_SOURCE_DIR}/extern/glew/lib/glew32s.lib"
-						optimized "${CMAKE_CURRENT_SOURCE_DIR}/bin/extern/glfw/Release/glfw3dll.lib"	
+						optimized "${CMAKE_CURRENT_SOURCE_DIR}/bin/Release/glfw3dll.lib"	
+                        optimized "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/bin/Release/spdlog.lib"
 					
 						)
 
