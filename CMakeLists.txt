@@ -40,6 +40,8 @@ set(MODEL_VIEWER_SOURCE_LIST
 	"src/Shader.h"
 	"src/Texture.cpp"
 	"src/Texture.h"
+	"src/Log.h"
+	"src/Log.cpp"
 )
 
 
@@ -128,7 +130,8 @@ target_link_libraries(Model-Viewer
 
 #INCLUDES
 include_directories(${MyProject_SOURCE_DIR}extern/assimp/include 
-					${MyProject_SOURCE_DIR}extern/glm ${MyProject_SOURCE_DIR}build/extern/assimp/include
+					${MyProject_SOURCE_DIR}extern/glm 
+					${MyProject_SOURCE_DIR}build/extern/assimp/include
 					${MyProject_SOURCE_DIR}extern # IMGUI
 					${MyProject_SOURCE_DIR}extern/imgui # IMGUI 					
 					${MyProject_SOURCE_DIR}extern/glfw/include
