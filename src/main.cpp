@@ -14,6 +14,7 @@
 #include <iostream>
 #include "Camera.h"
 #include "Texture.h"
+#include "Log.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -131,6 +132,12 @@ void SetShadingMode(DrawMode mode)
 
 int main(void)
 {
+	Log::Init();
+	LOG_ERROR("Initialized Log!");
+
+
+
+
 	int width = 1080;
 	int height = 720;
 

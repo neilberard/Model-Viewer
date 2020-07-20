@@ -135,5 +135,6 @@ include_directories(${MyProject_SOURCE_DIR}extern/assimp/include
 					${MyProject_SOURCE_DIR}extern # IMGUI
 					${MyProject_SOURCE_DIR}extern/imgui # IMGUI 					
 					${MyProject_SOURCE_DIR}extern/glfw/include
-					${MyProject_SOURCE_DIR}extern/glew/include)
+					${MyProject_SOURCE_DIR}extern/glew/include
+					${MyProject_SOURCE_DIR}extern/spdlog/include)
 					
