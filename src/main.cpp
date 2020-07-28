@@ -173,10 +173,10 @@ int main(void)
 	LOG_DEBUG("Running OPENGL {}", glGetString(GL_VERSION));
 
 	Shader shader("../../resources/shaders/lambert.glsl");
-	shader.Bind();
+
 
 	Cube lightCube;
-
+	Shader lightShader("../../resources/shaders/lambert.glsl");
 
 	// GET EXE DIRECTORY
 	std::string exePath = getexepath();
@@ -242,7 +242,8 @@ int main(void)
 		glCullFace(GL_BACK);
 		glEnable(GL_CULL_FACE);
 
-
+		// DRAW MESH //
+		shader.Bind();
 		glm::mat4 proj = glm::perspective(camera.GetZoom(), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 1000.0f);
 		view = camera.GetViewMatrix();
 		if (selectedItem == 0)
@@ -279,27 +280,44 @@ int main(void)
 			shader.SetUniform1f("u_Far", .13);
 			shader.SetUniform1f("u_Near", .002);
 			shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+			glPolygonMode(GL_FRONT, GL_FILL);
 			assimpModel.Draw();
 		}
 
 
-		//Light Cube 
+		if (r > 1.0f)
+		{
+			increment = -1.0f * pulseSpeed;
+		}
+		else if (r < 0.0f)
+			increment = 1.0f * pulseSpeed;
+
+		r += increment;
+
+		a += spinSpeed;
+
+		shader.SetUniform4f("u_Color", 0.5f, 0.5f, 0.5f, 1.0f);
+
+		glm::mat4 myrot = glm::rotate(glm::mat4(1.0f), a, glm::normalize(rotAxis));
+		glm::mat4 model = glm::translate(glm::mat4(1.0f), translate);
+		//glm::mat4 myrot2 = glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, scale));
+		glm::mat4 mvp = proj * view * model * scaleMatrix * myrot;
+
+		//shader.SetUniformMat4f("u_MVP", tMatrix * myrot * myrot2 * proj);
+		shader.SetUniformMat4f("u_MVP", mvp);
+		shader.SetUniformMat4f("u_ModelMatrix", myrot);
+
+
+		/////////////////  Light Cube /////////////////
 		if (drawLights)
 		{
-			shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+			lightShader.Bind();
+			lightShader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
 			lightCube.draw();
 		}
 
-
-
-
-
-
-
-
-
-
-
+		/////////////////  IMGUI  /////////////////
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -328,28 +346,16 @@ int main(void)
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-		if (r > 1.0f)
-		{
-			increment = -1.0f * pulseSpeed;
-		}
-		else if (r < 0.0f)
-			increment = 1.0f * pulseSpeed;
 
-		r += increment;
 
-		a += spinSpeed;
 
-		shader.SetUniform4f("u_Color", 0.5f, 0.5f, 0.5f, 1.0f);
 
-		glm::mat4 myrot = glm::rotate(glm::mat4(1.0f), a, glm::normalize(rotAxis));
-		glm::mat4 model = glm::translate(glm::mat4(1.0f), translate);
-		//glm::mat4 myrot2 = glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, scale));
-		glm::mat4 mvp = proj * view * model * scaleMatrix * myrot;
 
-		//shader.SetUniformMat4f("u_MVP", tMatrix * myrot * myrot2 * proj);
-		shader.SetUniformMat4f("u_MVP", mvp);
-		shader.SetUniformMat4f("u_ModelMatrix", myrot);
+
+
+
+
+
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
