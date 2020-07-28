@@ -2,8 +2,6 @@
 #define CAMERA_H
 
 
-
-
 #include <vector>
 #include <gl/glew.h>
 #include <glm/glm.hpp>
@@ -60,7 +58,10 @@ public:
 		this->yaw = yaw;
 		this->pitch = pitch;
 		this->updateCameraVectors();
+		
 	}
+
+	glm::vec3 Position() { return this->position; }
 
 	glm::mat4 GetViewMatrix()
 	{

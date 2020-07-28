@@ -1,3 +1,17 @@
+//#include "Model.h"
+//#include <iostream>
+//
+//int main()
+//{
+//	printf("Howdy!");
+//	std::cin.get();
+//	return 1;
+//}
+
+
+///////////////////// TEST CODE ///////////////////////
+
+
 #include "Debugging.h"
 #include <iostream>
 #include <gl/glew.h>
@@ -89,8 +103,8 @@ void loadFBX()
 {
 	std::string fileNameStr = openfilename(pfilter).c_str();
 	assimpModel = Model(fileNameStr.c_str());
-	LOGGER->log("DONE LOADING ASSIMP");
-	//printf("\n DONE LOADING ASSIMP");
+	LOG_DEBUG("DONE LOADING ASSIMP");
+
 }
 
 
@@ -116,26 +130,11 @@ GLfloat lastX = WIDTH / 2.0f;
 GLfloat lastY = WIDTH / 2.0f;
 
 
-void SetShadingMode(DrawMode mode)
-{
-	drawMode = mode;
-	if (drawMode == draw_normal)
-	{
-
-	}
-
-
-
-
-
-}
-
 int main(void)
 {
 	Log::Init();
-	LOG_ERROR("Initialized Log!");
-
-
+	//Log::set_level();
+	LOG_INFO("Initialized Log!");
 
 
 	int width = 1080;
@@ -151,6 +150,7 @@ int main(void)
 	window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World", NULL, NULL);
 	if (!window)
 	{
+		LOG_INFO("Closing Window");
 		glfwTerminate();
 		return -1;
 	}
@@ -170,15 +170,17 @@ int main(void)
 		//Log.log("Glew Failed!");
 
 	}
-	LOGGER->log("Running OPENGL %d", 10);
-	printf("%s", glGetString(GL_VERSION));
+	LOG_DEBUG("Running OPENGL {}", glGetString(GL_VERSION));
 
 	Shader shader("../../resources/shaders/lambert.glsl");
 	shader.Bind();
 
+	Cube lightCube;
+
+
 	// GET EXE DIRECTORY
 	std::string exePath = getexepath();
-	printf("\n EXE PATH:    %s", exePath.c_str());
+	LOG_DEBUG("\n EXE PATH:    {}", exePath.c_str());
 
 	glm::uvec4 vp(1.0f, 1.0f, 0.0f, 1.0f);
 	glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
@@ -220,11 +222,15 @@ int main(void)
 	// DRAW MODE OPTIONS TODO: figure out how to convert this to an enum
 	const char* items[]{ "Diffuse", "Normal", "Wireframe", "ZDepth" };
 	static int selectedItem = 0;
+	static bool drawLights = true;
 
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
+		const glm::vec3 cpos = camera.Position();
+		//LOG_DEBUG("Position X {} Y {} Z {}", cpos.x, cpos.y, cpos.z);
+
 		/* Render here */
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		DoMovement();
@@ -233,21 +239,27 @@ int main(void)
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
+		glCullFace(GL_BACK);
+		glEnable(GL_CULL_FACE);
+
+
 		glm::mat4 proj = glm::perspective(camera.GetZoom(), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 1000.0f);
 		view = camera.GetViewMatrix();
 		if (selectedItem == 0)
 		{
-			shader.SetUniform4f("u_Color", 1.0f, 0.5f, 0.5f, 1.0f);
+			shader.SetUniform4f("u_Color", 0.0f, 1.0f, 0.0f, 1.0f);
 			shader.SetUniform1i("u_Wireframe", 0);
 			shader.SetUniform1i("u_DrawMode", 0);
-			assimpModel.Draw(GL_FILL);
+			glPolygonMode(GL_FRONT, GL_FILL);
+			assimpModel.Draw();
 		}
 
 		if (selectedItem == 1)
 		{
 			shader.SetUniform1i("u_DrawMode", 1);
 			shader.SetUniform1i("u_Wireframe", 0);
-			assimpModel.Draw(GL_FILL);
+			glPolygonMode(GL_FRONT, GL_FILL);
+			assimpModel.Draw();
 		}
 		// Wireframe on shaded
 		if (selectedItem == 2 || wireFrameOnShaded)
@@ -255,7 +267,8 @@ int main(void)
 			shader.SetUniform1i("u_DrawMode", 2);
 			shader.SetUniform1i("u_Wireframe", 1);
 			shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
-			assimpModel.Draw(GL_LINE);
+			glPolygonMode(GL_FRONT, GL_LINE);
+			assimpModel.Draw();
 		}
 
 		// ZDepth
@@ -266,8 +279,26 @@ int main(void)
 			shader.SetUniform1f("u_Far", .13);
 			shader.SetUniform1f("u_Near", .002);
 			shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
-			assimpModel.Draw(GL_FILL);
+			assimpModel.Draw();
 		}
+
+
+		//Light Cube 
+		if (drawLights)
+		{
+			shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+			lightCube.draw();
+		}
+
+
+
+
+
+
+
+
+
+
 
 
 		ImGui_ImplOpenGL3_NewFrame();
@@ -281,7 +312,6 @@ int main(void)
 			if (ImGui::Button("Load FBX"))
 			{
 				loadFBX();
-				printf("Button Clicked!");
 			}
 			ImGui::Checkbox("Wireframe on shaded", &wireFrameOnShaded);
 			ImGui::Combo("Draw Mode", &selectedItem, items, IM_ARRAYSIZE(items));
@@ -329,15 +359,11 @@ int main(void)
 
 	}
 
-	printf("\nShutting down");
+	LOG_INFO("Shutting down");
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
-
-
 	return 0;
-	// This causes error 1282
-	//GLCall(glfwTerminate());
 }
 
 void DoMovement()

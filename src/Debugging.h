@@ -1,8 +1,3 @@
-
-/* Logger is Based on code from https://cppcodetips.wordpress.com/2014/01/02/a-simple-logger-class-in-c/ by Sadique Ali E
-*/
-
-
 #ifndef _DEBUGGING_H
 #define _DEBUGGING_H
 
@@ -38,39 +33,6 @@ EXAMPLE USAGE: 	GLCall(glGenBuffers(1, &VBO));
 void GLClearError();
 
 bool GLLogCall(const char* function, const char* file, int line);
-
-
-
-/*
-SIMPLE LOGGER
-*/
-
-enum LogLeval
-{
-	ERROR, WARNING, INFO, DEBUG
-};
-
-class Logger
-{
-
-private:
-	static Logger* m_pThis;
-
-
-public:
-
-	Logger();
-	virtual ~Logger();
-	
-	void log(const std::string& message);
-	void log(const char* format, ...);
-
-
-	static Logger* GetLogger();
-
-
-};
-
 
 
 

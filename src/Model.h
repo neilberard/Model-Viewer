@@ -1,5 +1,4 @@
-#ifndef MODEL_H
-#define MODEL_H
+#pragma once
 
 #include <stdio.h>
 #include <vector>
@@ -11,9 +10,7 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include "Mesh.h"
-//#include "Shader.h"
-
-
+#include "Log.h"
 
 
 class Model
@@ -22,7 +19,7 @@ public:
 	Model();
 	Model(const char *path);
 
-	void Draw(GLenum pMode=GL_FILL);
+	void Draw();
 
 	~Model();
 
@@ -45,13 +42,3 @@ private:
 };
 
 
-
-
-
-
-
-
-
-
-
-#endif

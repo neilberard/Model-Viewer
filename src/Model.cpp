@@ -1,19 +1,29 @@
 #include "Model.h"
-//Logger Log;
+
 
 Model::Model(const char *path)
 {
+	// Clean up previously loaded model. 
+	if (mLoaded)
+	{
+		LOG_DEBUG("Previous Model was loaded. Need to cleanup first");
+	}
+
+
 	loadModel(path);
 }
 
 
 Model::Model()
 {
+
+
+	
 	mLoaded = false;
 	return;
 }
 
-void Model::Draw(GLenum pMode/*=GL_FILL*/)
+void Model::Draw()
 {
 	if (!mLoaded)
 	{
@@ -22,15 +32,12 @@ void Model::Draw(GLenum pMode/*=GL_FILL*/)
 
 	for (unsigned int i = 0; i < mMeshes.size(); i++)
 	{
-		mMeshes[i].draw(pMode = pMode);
+		mMeshes[i].draw();
 	}
 }
 
 Model::~Model()
 {
-	mLoaded = false;
-	//Log.log("Removing Model");
-
 }
 
 void Model::loadModel(std::string path)
