@@ -216,6 +216,12 @@ int main(void)
 	float pulseSpeed = .01f;
 	glm::vec3 translate = glm::vec3(0.0f, 0.0f, 0);
 
+	// Light pos 
+	glm::mat4 lightScale = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f));
+	glm::vec3 lightTranslate = glm::vec3(0.0f, 0.0f, 0.0f);
+
+
+
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
 
@@ -246,8 +252,11 @@ int main(void)
 		shader.Bind();
 		glm::mat4 proj = glm::perspective(camera.GetZoom(), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 1000.0f);
 		view = camera.GetViewMatrix();
+
+		// Diffuse
 		if (selectedItem == 0)
 		{
+			shader.SetUniform4f("u_LightPos", lightTranslate.x, lightTranslate.y, lightTranslate.z, 1.0f);
 			shader.SetUniform4f("u_Color", 0.0f, 1.0f, 0.0f, 1.0f);
 			shader.SetUniform1i("u_Wireframe", 0);
 			shader.SetUniform1i("u_DrawMode", 0);
@@ -284,6 +293,7 @@ int main(void)
 			assimpModel.Draw();
 		}
 
+		
 
 		if (r > 1.0f)
 		{
@@ -310,10 +320,19 @@ int main(void)
 
 
 		/////////////////  Light Cube /////////////////
+
+		glm::mat4 lightModel = glm::translate(glm::mat4(1.0f), lightTranslate);
 		if (drawLights)
 		{
+			//LOG_DEBUG("Light tanslate x:{}, y:{}, z:{}", lightTranslate.x, lightTranslate.y, lightTranslate.z);
 			lightShader.Bind();
+			lightShader.SetUniform1i("u_DrawMode", 4);
+			lightShader.SetUniform4f("u_LightPos", lightTranslate.x, lightTranslate.y, lightTranslate.z, 1.0f);
+
 			lightShader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+			lightShader.SetUniformMat4f("u_MVP", proj * view * lightModel * lightScale);
+			lightShader.SetUniformMat4f("u_ModelMatrix", model);
+			glPolygonMode(GL_FRONT, GL_FILL);
 			lightCube.draw();
 		}
 
@@ -339,23 +358,15 @@ int main(void)
 			ImGui::SliderFloat("SpinSpeed", &spinSpeed, 0.0f, 0.05f);
 			ImGui::SliderFloat("ZNear", &near_dist, 0.001f, 0.1f);
 			ImGui::SliderFloat("ZFar", &far_dist, 0.001f, 1.0f);
+
+			ImGui::SliderFloat3("LightPos", &lightTranslate.x, -2.0f, 2.0f);
+
 			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 			ImGui::End();
 		}
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-
-
-
-
-
-
-
-
-
-
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);

@@ -11,15 +11,15 @@ Mesh::Mesh(std::vector<Vertex> pVertices, std::vector<unsigned int> pIndices, st
 Mesh::~Mesh()
 {
 	//Cleanup
-	glBindVertexArray(0);
-	glDeleteBuffers(1, &VBO);
-	glDeleteBuffers(1, &EBO);
-	//glDeleteVertexArrays(1, &VAO); //Deleting this will prevent the successfull generation of a new VAO 
-	mVertices.clear();
-	mIndices.clear();
-	mTextures.clear();
+	//glBindVertexArray(0);
+	//glDeleteBuffers(1, &VBO);
+	//glDeleteBuffers(1, &EBO);
+	////glDeleteVertexArrays(1, &VAO); //Deleting this will prevent the successfull generation of a new VAO 
+	//mVertices.clear();
+	//mIndices.clear();
+	//mTextures.clear();
 
-	VAO = 0;
+	//VAO = 0;
 }
 
 void Mesh::setupMesh()
@@ -77,10 +77,10 @@ void Mesh::draw()
 	glBindVertexArray(0);
 }
 
-
-
 Cube::Cube()
 {
+	LOG_INFO("Building Cube");
+
 	std::vector<float>positions = {
 	-1.0f, -1.0f, -1.0f, // 0
 	-1.0f,  1.0f, -1.0f, // 1
@@ -92,8 +92,7 @@ Cube::Cube()
 	 1.0f, -1.0f,  1.0f  // 7
 	};
 
-
-	mIndices = {
+	this->mIndices = {
 		0, 1, 2, 0, 2, 3,
 		4, 6, 5, 4, 7, 6,
 		4, 5, 1, 4, 1, 0,
@@ -110,58 +109,38 @@ Cube::Cube()
 
 		// VERTEX
 		glm::vec4 vector;
-		vector.x = positions[i];
-		vector.y = positions[i + 1];
-		vector.z = positions[i + 2];
+		vector.x = positions[i * 3];
+		vector.y = positions[(i * 3) + 1];
+		vector.z = positions[(i * 3) + 2];
 		vector.w = 1.0f;
 		vertex.Position = vector;
-		mVertices.push_back(vertex);
+
+		LOG_INFO("Adding Vertex {} x:{} y:{} z:{}", i, vector.x, vector.y, vector.z);
+		
+
+
+		this->mVertices.push_back(vertex);
 	}
 
-
-
-
-
-
-
-}
-
-Cube::~Cube()
-{
-
-}
-
-void Cube::draw(GLenum pMode /*= GL_FILL*/)
-{
-
-}
-
-void Cube::setupMesh()
-{
-	// Setup vertices for triangles
-
-
-
-
-	if (!mVertices.size())
+	if (!this->mVertices.size())
 	{
 		LOG_ERROR("Mesh is not loaded!");
 		return;
 	}
 
-	GLCall(glGenVertexArrays(1, &VAO));  // Vertex Array	
-	GLCall(glGenBuffers(1, &VBO));       // Vertex Buffer
-	GLCall(glGenBuffers(1, &EBO));       // Index Buffer
+	GLCall(glGenVertexArrays(1, &this->VAO));  // Vertex Array	
+	GLCall(glGenBuffers(1, &this->VBO));       // Vertex Buffer
+	GLCall(glGenBuffers(1, &this->EBO));       // Index Buffer
 
 
-	GLCall(glBindVertexArray(VAO));
+	GLCall(glBindVertexArray(this->VAO));
 	// Vertex Buffer
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, mVertices.size() * sizeof(Vertex), &mVertices[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+	glBufferData(GL_ARRAY_BUFFER, this->mVertices.size() * sizeof(Vertex), &this->mVertices[0], GL_STATIC_DRAW);
 
 	// Index Buffer
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIndices.size() * sizeof(unsigned int), &mIndices[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->mIndices.size() * sizeof(unsigned int), &this->mIndices[0], GL_STATIC_DRAW);
 
 	// Vertex Positions 
 	GLCall(glEnableVertexAttribArray(0));
@@ -170,6 +149,24 @@ void Cube::setupMesh()
 	// Unbind cleanup
 	glBindVertexArray(0);
 
+}
+
+Cube::~Cube()
+{
 
 
+}
+
+void Cube::draw(GLenum pMode /*= GL_FILL*/)
+{
+	//LOG_INFO("Rendering Cube with polycount {}, assimp polycount {}", this->mVertices.size(), mVertices.size());
+	glBindVertexArray(this->VAO);
+	// I'm not sure why indices.size() works and not mVertices.size() TODO: invesitgate this!
+	glDrawElements(GL_TRIANGLES, mIndices.size(), GL_UNSIGNED_INT, nullptr);
+	glBindVertexArray(0);
+
+}
+
+void Cube::setupMesh()
+{
 }

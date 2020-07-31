@@ -53,7 +53,7 @@ in vec3 v_BC;
 uniform int u_Wireframe;
 uniform vec4 u_Color;
 uniform int u_DrawMode;
-
+uniform vec4 u_LightPos;
 uniform float u_Near;
 uniform float u_Far;
 
@@ -77,6 +77,7 @@ void main()
     if (u_DrawMode == 1)
     {
        color = v_Normal;
+	   normalize(color);
     }
 
     // ZDEPTH
@@ -86,14 +87,23 @@ void main()
     color = vec4(vec3(depth), 1.0) + vec4(0.1, 0.1, 0.1, 1.0);
     }
 
-
-
     // DIFFUSE
     else if (u_DrawMode == 0)
-    {   
-    color = u_Color;
+    {
+	
+	vec4 lightAngle = u_LightPos;
+	normalize(lightAngle);
+	
+    //color = vec4(0.5, 0.5, 0.5, 1.0) * dot(vec4(0.0, 1.0, 0.0, 1.0), v_Normal);
+	color = vec4(0.5, 0.5, 0.5, 1.0) * dot(lightAngle, v_Normal);
+	//color = lightAngle;
     }
    
+	// FLAT
+    else if (u_DrawMode == 4)
+    {
+	color = u_Color;
+    }
 
 
 
