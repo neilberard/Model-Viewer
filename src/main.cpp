@@ -1,3 +1,9 @@
+// Author: Neil Berard. External code and licenses included in the project directory and git submodules.
+// This project is intended for learning opengl and not for any real-world applications. Use at your own risk. 
+
+
+///////////////////// TEST CODE ///////////////////////
+
 //#include "Model.h"
 //#include <iostream>
 //
@@ -8,8 +14,7 @@
 //	return 1;
 //}
 
-
-///////////////////// TEST CODE ///////////////////////
+///////////////////// END TEST CODE ///////////////////////
 
 
 #include "Debugging.h"
@@ -24,7 +29,6 @@
 #include "imgui/examples/imgui_impl_glfw.h"
 #include "imgui/examples/imgui_impl_opengl3.h"
 #include <windows.h>
-/*#include <commdlg.h>*/ //No idea what the fuck this is
 #include <iostream>
 #include "Camera.h"
 #include "Texture.h"
@@ -35,17 +39,33 @@
 #endif
 
 
-//int main(int argc, char *argv[])
-//{
-//	std::cin.get();
-//	return 1;
-//}
 
 
-
-
-enum DrawMode
+// UI STATE
+namespace Scene
 {
+	//TODO: Add active camera index.
+	Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+	//std::vector<Camera*>cameras = { new Camera(glm::vec3(0.0f, 0.0f, 3.0f)) };
+}
+
+
+namespace Lights
+{
+	glm::vec4 lightColorA = glm::vec4(1.0f);
+	
+}
+
+namespace Shading
+{
+	int mode = 0;
+	glm::vec4 diffuseColor = glm::vec4(0.5f);
+	float specIntensity = 1.0f;
+}
+
+
+
+enum DrawMode {
 	// Debug shaders
 	draw_normal, draw_lit, draw_outline, draw_wireframe_on_shaded
 };
@@ -104,7 +124,6 @@ void loadFBX()
 	std::string fileNameStr = openfilename(pfilter).c_str();
 	assimpModel = Model(fileNameStr.c_str());
 	LOG_DEBUG("DONE LOADING ASSIMP");
-
 }
 
 
@@ -123,16 +142,25 @@ void ScreenResize(int width, int height, glm::mat4 &proj)
 void KeyCallback(GLFWwindow *window, int key, int scanecode, int action, int mode);
 void ScrollCallback(GLFWwindow *window, double xOffset, double yOffset);
 void MouseCallback(GLFWwindow *window, double xPos, double yPos);
+void DisplayCallback();
 void DoMovement();
+void RenderUI();
 
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 GLfloat lastX = WIDTH / 2.0f;
 GLfloat lastY = WIDTH / 2.0f;
+
+
+static bool drawLights = true;
+
+// DRAW MODE OPTIONS TODO: figure out how to convert this to an enum
+const char* items[]{ "Diffuse", "Normal", "Wireframe", "ZDepth" };
+
 
 
 int main(void)
 {
 	Log::Init();
+
 	//Log::set_level();
 	LOG_INFO("Initialized Log!");
 
@@ -147,7 +175,7 @@ int main(void)
 		return -1;
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World", NULL, NULL);
+	window = glfwCreateWindow(WIDTH, HEIGHT, "NB Model Viewer", NULL, NULL);
 	if (!window)
 	{
 		LOG_INFO("Closing Window");
@@ -173,9 +201,7 @@ int main(void)
 	LOG_DEBUG("Running OPENGL {}", glGetString(GL_VERSION));
 
 	Shader shader("../../resources/shaders/lambert.glsl");
-
-
-	Cube lightCube;
+	LightCube lightCube;
 	Shader lightShader("../../resources/shaders/lambert.glsl");
 
 	// GET EXE DIRECTORY
@@ -210,7 +236,6 @@ int main(void)
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init(glsl_version);
 
-
 	float scale = 1.0f;
 	float spinSpeed = .01f;
 	float pulseSpeed = .01f;
@@ -220,21 +245,14 @@ int main(void)
 	glm::mat4 lightScale = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f));
 	glm::vec3 lightTranslate = glm::vec3(0.0f, 0.0f, 0.0f);
 
-
-
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
-
-	// DRAW MODE OPTIONS TODO: figure out how to convert this to an enum
-	const char* items[]{ "Diffuse", "Normal", "Wireframe", "ZDepth" };
-	static int selectedItem = 0;
-	static bool drawLights = true;
 
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
-		const glm::vec3 cpos = camera.Position();
+		const glm::vec3 cpos = Scene::camera.Position();
 		//LOG_DEBUG("Position X {} Y {} Z {}", cpos.x, cpos.y, cpos.z);
 
 		/* Render here */
@@ -250,21 +268,24 @@ int main(void)
 
 		// DRAW MESH //
 		shader.Bind();
-		glm::mat4 proj = glm::perspective(camera.GetZoom(), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 1000.0f);
-		view = camera.GetViewMatrix();
+		glm::mat4 proj = glm::perspective(Scene::camera.GetZoom(), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 1000.0f);
+		view = Scene::camera.GetViewMatrix();
 
 		// Diffuse
-		if (selectedItem == 0)
+		if (Shading::mode == 0)
 		{
-			shader.SetUniform4f("u_LightPos", lightTranslate.x, lightTranslate.y, lightTranslate.z, 1.0f);
-			shader.SetUniform4f("u_Color", 0.0f, 1.0f, 0.0f, 1.0f);
+			shader.SetUniform4f("u_LightPosA", lightTranslate.x, lightTranslate.y, lightTranslate.z, 1.0f);
+			shader.SetUniform4f("u_LightColorA", Lights::lightColorA.x, Lights::lightColorA.y, Lights::lightColorA.z, 1.0f);
+			shader.SetUniform4f("u_Color", Shading::diffuseColor.x, Shading::diffuseColor.y, Shading::diffuseColor.z, Shading::diffuseColor.w);
+			shader.SetUniform4f("u_CameraPos", Scene::camera.Position().x, Scene::camera.Position().y, Scene::camera.Position().z, 1.0f);
 			shader.SetUniform1i("u_Wireframe", 0);
 			shader.SetUniform1i("u_DrawMode", 0);
+			shader.SetUniform1f("u_SpecIntensity", Shading::specIntensity);
 			glPolygonMode(GL_FRONT, GL_FILL);
 			assimpModel.Draw();
 		}
 
-		if (selectedItem == 1)
+		if (Shading::mode == 1)
 		{
 			shader.SetUniform1i("u_DrawMode", 1);
 			shader.SetUniform1i("u_Wireframe", 0);
@@ -272,7 +293,7 @@ int main(void)
 			assimpModel.Draw();
 		}
 		// Wireframe on shaded
-		if (selectedItem == 2 || wireFrameOnShaded)
+		if (Shading::mode == 2 || wireFrameOnShaded)
 		{
 			shader.SetUniform1i("u_DrawMode", 2);
 			shader.SetUniform1i("u_Wireframe", 1);
@@ -282,7 +303,7 @@ int main(void)
 		}
 
 		// ZDepth
-		if (selectedItem == 3)
+		if (Shading::mode == 3)
 		{
 			shader.SetUniform1i("u_DrawMode", 3);
 			shader.SetUniform1i("u_Wireframe", 0);
@@ -327,9 +348,8 @@ int main(void)
 			//LOG_DEBUG("Light tanslate x:{}, y:{}, z:{}", lightTranslate.x, lightTranslate.y, lightTranslate.z);
 			lightShader.Bind();
 			lightShader.SetUniform1i("u_DrawMode", 4);
-			lightShader.SetUniform4f("u_LightPos", lightTranslate.x, lightTranslate.y, lightTranslate.z, 1.0f);
-
-			lightShader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+			lightShader.SetUniform4f("u_LightPosA", lightTranslate.x, lightTranslate.y, lightTranslate.z, 1.0f);
+			lightShader.SetUniform4f("u_Color", Lights::lightColorA.x, Lights::lightColorA.y, Lights::lightColorA.z, 1.0f);
 			lightShader.SetUniformMat4f("u_MVP", proj * view * lightModel * lightScale);
 			lightShader.SetUniformMat4f("u_ModelMatrix", model);
 			glPolygonMode(GL_FRONT, GL_FILL);
@@ -342,23 +362,26 @@ int main(void)
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 		{
-			static float f = 0.0f;
-			static int counter = 0;
 
-			ImGui::Begin("IMGUI, world!");                          // Create a window called "Hello, world!" and append into it.
+			ImGui::Begin(" ");                          // Create a window called "Hello, world!" and append into it.
 			if (ImGui::Button("Load FBX"))
 			{
 				loadFBX();
 			}
 			ImGui::Checkbox("Wireframe on shaded", &wireFrameOnShaded);
-			ImGui::Combo("Draw Mode", &selectedItem, items, IM_ARRAYSIZE(items));
+			ImGui::Combo("Draw Mode", &Shading::mode, items, IM_ARRAYSIZE(items));
+			ImGui::SliderFloat3("Diffuse Color", &Shading::diffuseColor.x, 0.0f, 1.0f);
+			ImGui::SliderFloat("Spec Intensity", &Shading::specIntensity, 0.0f, 0.5f);
+
 			ImGui::SliderFloat2("Move", &translate.x, -1.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
 			ImGui::SliderFloat("Zoom", &scale, 0.0f, 4.0f);
 			ImGui::SliderFloat3("Spin", &rotAxis.x, 0.0f, 1.0f);
 			ImGui::SliderFloat("SpinSpeed", &spinSpeed, 0.0f, 0.05f);
 			ImGui::SliderFloat("ZNear", &near_dist, 0.001f, 0.1f);
 			ImGui::SliderFloat("ZFar", &far_dist, 0.001f, 1.0f);
+			ImGui::Separator();
 
+			ImGui::SliderFloat4("Light Color", &Lights::lightColorA.x, 0.0f, 1.0f);
 			ImGui::SliderFloat3("LightPos", &lightTranslate.x, -2.0f, 2.0f);
 
 			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -387,22 +410,22 @@ void DoMovement()
 {
 	if (keys[GLFW_KEY_W] || keys[GLFW_KEY_UP])
 	{
-		camera.ProcessKeyboard(FORWARD, deltaTime);
+		Scene::camera.ProcessKeyboard(FORWARD, deltaTime);
 	}
 
 	if (keys[GLFW_KEY_S] || keys[GLFW_KEY_DOWN])
 	{
-		camera.ProcessKeyboard(BACKWARD, deltaTime);
+		Scene::camera.ProcessKeyboard(BACKWARD, deltaTime);
 	}
 
 	if (keys[GLFW_KEY_A] || keys[GLFW_KEY_LEFT])
 	{
-		camera.ProcessKeyboard(LEFT, deltaTime);
+		Scene::camera.ProcessKeyboard(LEFT, deltaTime);
 	}
 
 	if (keys[GLFW_KEY_D] || keys[GLFW_KEY_RIGHT])
 	{
-		camera.ProcessKeyboard(RIGHT, deltaTime);
+		Scene::camera.ProcessKeyboard(RIGHT, deltaTime);
 	}
 }
 
@@ -433,7 +456,6 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
 			processMouse = true;
 		}
 	}
-
 
 
 	if (key >= 0 && key < 1024)
@@ -476,12 +498,28 @@ void MouseCallback(GLFWwindow *window, double pXPos, double pYPos)
 	lastX = xPos;
 	lastY = yPos;
 
-	camera.ProcessMouseMovement(xOffset, yOffset * -1.0f);
+	Scene::camera.ProcessMouseMovement(xOffset, yOffset * -1.0f);
 
 }
 
 void ScrollCallback(GLFWwindow *window, double xOffset, double pYOffset)
 {
 	GLfloat yOffset = GLfloat(pYOffset);
-	camera.ProcessMouseScroll(yOffset);
+	Scene::camera.ProcessMouseScroll(yOffset);
+}
+
+//TODO: Move while loop logic here and use and register this callback
+void DisplayCallback()
+{
+
+
+}
+
+void RenderUI()
+{
+
+
+
+
+
 }

@@ -1,6 +1,7 @@
 #pragma  once
 
 #include "Debugging.h"
+#include "Shader.h"
 #include "glm/glm.hpp"
 #include "Log.h"
 #include <string>
@@ -22,6 +23,7 @@ struct TextureID {
 
 class Mesh {
 public:
+	//Shader mShader;
 	std::vector<Vertex> mVertices;
 	std::vector<unsigned int> mIndices;
 	std::vector<TextureID> mTextures;
@@ -38,15 +40,16 @@ private:
 
 };
 
-class Cube {
+class LightCube {
 public:
+	float scale;
+
 	std::vector<Vertex> mVertices;
 	std::vector<unsigned int> mIndices;
 	std::vector<TextureID> mTextures;
-	Cube();
-	~Cube();
+	LightCube(float pSize=1.0f);
+	~LightCube();
 	void draw(GLenum pMode = GL_FILL);
-
 private:
 	unsigned int VAO, VBO, EBO;
 	void setupMesh();

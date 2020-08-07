@@ -53,7 +53,22 @@ in vec3 v_BC;
 uniform int u_Wireframe;
 uniform vec4 u_Color;
 uniform int u_DrawMode;
-uniform vec4 u_LightPos;
+
+
+//Forward Lights
+uniform vec4 u_LightPosA;
+uniform vec4 u_LightColorA;
+
+uniform vec4 u_LightPosB;
+uniform vec4 u_LightColorB;
+
+uniform vec4 u_LightPosC;
+uniform vec4 u_LightColorC;
+
+uniform float u_SpecIntensity;
+
+uniform vec4 u_CameraPos;
+
 uniform float u_Near;
 uniform float u_Far;
 
@@ -90,13 +105,27 @@ void main()
     // DIFFUSE
     else if (u_DrawMode == 0)
     {
-	
-	vec4 lightAngle = u_LightPos;
+     
+
+	vec4 lightAngle = u_LightPosA - v_Position;
 	normalize(lightAngle);
-	
+    
+    
+    // Specular
+    vec4 veiwDir = normalize(u_CameraPos - v_Position);
+    vec4 norm = normalize(v_Normal);
+    
+    vec4 reflectDir = reflect(-lightAngle, norm);
+    float spec = pow(max(dot(veiwDir, reflectDir), 0.0), 64);
+    vec3 specular = u_SpecIntensity * spec * vec3(0.5);
+     
+    
+    float diff = max(dot(lightAngle, v_Normal), 0.0); // Prevent Negative Values
     //color = vec4(0.5, 0.5, 0.5, 1.0) * dot(vec4(0.0, 1.0, 0.0, 1.0), v_Normal);
-	color = vec4(0.5, 0.5, 0.5, 1.0) * dot(lightAngle, v_Normal);
-	//color = lightAngle;
+    vec4 diffuse = diff * u_LightColorA;
+    vec4 ambient = vec4(0.1f);
+	//color = (ambient + diffuse + specular) * u_Color;
+	color = vec4(specular, 1.0);
     }
    
 	// FLAT
@@ -104,6 +133,7 @@ void main()
     {
 	color = u_Color;
     }
+    
 
 
 

@@ -77,9 +77,10 @@ void Mesh::draw()
 	glBindVertexArray(0);
 }
 
-Cube::Cube()
+LightCube::LightCube(float pScale/*=1.0f*/)
 {
-	LOG_INFO("Building Cube");
+	scale = pScale;
+	LOG_INFO("Building Cube, size {}", scale);
 
 	std::vector<float>positions = {
 	-1.0f, -1.0f, -1.0f, // 0
@@ -91,6 +92,8 @@ Cube::Cube()
 	 1.0f,  1.0f,  1.0f, // 6
 	 1.0f, -1.0f,  1.0f  // 7
 	};
+
+
 
 	this->mIndices = {
 		0, 1, 2, 0, 2, 3,
@@ -109,9 +112,9 @@ Cube::Cube()
 
 		// VERTEX
 		glm::vec4 vector;
-		vector.x = positions[i * 3];
-		vector.y = positions[(i * 3) + 1];
-		vector.z = positions[(i * 3) + 2];
+		vector.x = positions[i * 3] * scale;
+		vector.y = positions[(i * 3) + 1] * scale;
+		vector.z = positions[(i * 3) + 2] * scale;
 		vector.w = 1.0f;
 		vertex.Position = vector;
 
@@ -151,13 +154,13 @@ Cube::Cube()
 
 }
 
-Cube::~Cube()
+LightCube::~LightCube()
 {
 
 
 }
 
-void Cube::draw(GLenum pMode /*= GL_FILL*/)
+void LightCube::draw(GLenum pMode /*= GL_FILL*/)
 {
 	//LOG_INFO("Rendering Cube with polycount {}, assimp polycount {}", this->mVertices.size(), mVertices.size());
 	glBindVertexArray(this->VAO);
@@ -167,6 +170,4 @@ void Cube::draw(GLenum pMode /*= GL_FILL*/)
 
 }
 
-void Cube::setupMesh()
-{
-}
+
