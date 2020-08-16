@@ -431,13 +431,15 @@ int main(void)
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	// Attach Texture
-	unsigned int textureColorBuffer;
-	glGenTextures(1, &textureColorBuffer);
-	glBindTexture(GL_TEXTURE_2D, textureColorBuffer);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorBuffer, 0);
+	unsigned int depthMap;
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, WIDTH, HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE)
 	{
@@ -496,14 +498,10 @@ int main(void)
 
 
 		// Second pass
-		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		//glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		//glClear(GL_COLOR_BUFFER_BIT);
-
 		postShader.Bind();
 		glDisable(GL_DEPTH_TEST);
 		glActiveTexture(GL_TEXTURE0 + 2);
-		glBindTexture(GL_TEXTURE_2D, textureColorBuffer);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
 		postShader.SetUniform1i("u_Texture", 2);
 		postShader.SetUniformMat4f("u_MVP", Scene::model);
 		renderPlane.Draw();
