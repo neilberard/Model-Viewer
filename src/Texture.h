@@ -4,14 +4,26 @@
 
 #include "Debugging.h"
 #include <string>
+#include <vector>
+#include "Log.h"
 #include "stb/stb_image.h"
 
 
 class Skybox
 {
+public:
+	Skybox(std::vector<std::string> faces);
+	~Skybox();
+
+	void BindTexture(unsigned int slot = 0) const;
+	void Unbind() const;
 
 
+private:
 
+	std::vector<std::string> m_Faces;
+	unsigned int m_TextureID = 0;
+	void LoadCubemap();
 
 };
 
@@ -28,7 +40,7 @@ public:
 	Texture(const std::string& path);
 	~Texture();
 
-	void Bind(unsigned int slot = 0) const;
+	void BindTexture(unsigned int slot = 0) const;
 	void Unbind() const;
 
 	inline int GetWidth() const { return m_Width; }

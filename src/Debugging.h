@@ -9,8 +9,6 @@
 
 
 
-#define LOGGER Logger::GetLogger()
-
 
 /*
 GLCALL is a simple wrapper that will break during a debug session when passed opengl function returns an error.

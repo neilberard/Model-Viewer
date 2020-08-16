@@ -42,6 +42,8 @@ set(MODEL_VIEWER_SOURCE_LIST
 	"src/Texture.h"
 	"src/Log.h"
 	"src/Log.cpp"
+	"src/Scene.cpp"
+	"src/Scene.h"
 )
 
 

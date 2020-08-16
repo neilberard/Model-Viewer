@@ -86,18 +86,16 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 		// Process vertex positions, normals and tex coords
 
 		// VERTEX
-		glm::vec4 vector;
+		glm::vec3 vector;
 		vector.x = mesh->mVertices[i].x;
 		vector.y = mesh->mVertices[i].y;
 		vector.z = mesh->mVertices[i].z;
-		vector.w = 1.0f;
 		vertex.Position = vector;
 
 		// NORMAL
 		vector.x = mesh->mNormals[i].x;
 		vector.y = mesh->mNormals[i].y;
 		vector.z = mesh->mNormals[i].z;
-		vector.w = 1.0f;
 		vertex.Normal = vector;
 
 

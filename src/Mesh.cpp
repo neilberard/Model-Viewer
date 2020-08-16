@@ -1,10 +1,8 @@
 #include "Mesh.h"
 
 Mesh::Mesh(std::vector<Vertex> pVertices, std::vector<unsigned int> pIndices, std::vector<TextureID> pTextures)
+	:mVertices(pVertices), mIndices(pIndices), mTextures(pTextures)
 {
-	this->mVertices = pVertices;
-	this->mIndices = pIndices;
-	this->mTextures = pTextures;
 	setupMesh();
 }
 
@@ -24,13 +22,11 @@ Mesh::~Mesh()
 
 void Mesh::setupMesh()
 {
-	LOG_INFO("Setting up mesh.");
 	if (!mVertices.size())
 	{
 		LOG_ERROR("Mesh is not loaded!");
 		return;
 	}
-
 	GLCall(glGenVertexArrays(1, &VAO));  // Vertex Array	
 	GLCall(glGenBuffers(1, &VBO));       // Vertex Buffer
 	GLCall(glGenBuffers(1, &EBO));       // Index Buffer
@@ -47,11 +43,11 @@ void Mesh::setupMesh()
 
 	// Vertex Positions 
 	GLCall(glEnableVertexAttribArray(0));
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
 	
 	// Normals
 	GLCall(glEnableVertexAttribArray(1));
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
 
 	// vertex texture coords
 	GLCall(glEnableVertexAttribArray(2));
@@ -77,10 +73,35 @@ void Mesh::draw()
 	glBindVertexArray(0);
 }
 
-LightCube::LightCube(float pScale/*=1.0f*/)
+SimpleCube::SimpleCube(float pSize, bool pReverseNormals/*=false*/)
+	:mScale(pSize)
+
 {
-	scale = pScale;
-	LOG_INFO("Building Cube, size {}", scale);
+	setupMesh();
+
+
+}
+
+
+SimpleCube::~SimpleCube()
+{
+
+
+}
+
+void SimpleCube::draw(GLenum pMode /*= GL_FILL*/)
+{
+	//LOG_INFO("Rendering Cube with polycount {}, assimp polycount {}", this->mVertices.size(), mVertices.size());
+	glBindVertexArray(VAO);
+	// I'm not sure why indices.size() works and not mVertices.size() TODO: invesitgate this!
+	//LOG_INFO("Drawing simple cube {}", mIndices.size());
+	glDrawElements(GL_TRIANGLES, mIndices.size(), GL_UNSIGNED_INT, nullptr);
+	glBindVertexArray(0);
+
+}
+
+void SimpleCube::setupMesh()
+{
 
 	std::vector<float>positions = {
 	-1.0f, -1.0f, -1.0f, // 0
@@ -93,9 +114,7 @@ LightCube::LightCube(float pScale/*=1.0f*/)
 	 1.0f, -1.0f,  1.0f  // 7
 	};
 
-
-
-	this->mIndices = {
+	mIndices = {
 		0, 1, 2, 0, 2, 3,
 		4, 6, 5, 4, 7, 6,
 		4, 5, 1, 4, 1, 0,
@@ -103,7 +122,8 @@ LightCube::LightCube(float pScale/*=1.0f*/)
 		1, 5, 6, 1, 6, 2,
 		4, 0, 3, 4, 3, 7
 	};
-	LOG_DEBUG("Positions Size {}", positions.size());
+
+	//LOG_DEBUG("MIndices count {}", mIndices.size());
 
 	for (unsigned int i = 0; i < positions.size() / 3; i++)
 	{
@@ -111,63 +131,158 @@ LightCube::LightCube(float pScale/*=1.0f*/)
 		// Process vertex positions, normals and tex coords
 
 		// VERTEX
-		glm::vec4 vector;
-		vector.x = positions[i * 3] * scale;
-		vector.y = positions[(i * 3) + 1] * scale;
-		vector.z = positions[(i * 3) + 2] * scale;
-		vector.w = 1.0f;
+		glm::vec3 vector;
+		vector.x = positions[i * 3] * mScale;
+		vector.y = positions[(i * 3) + 1] * mScale;
+		vector.z = positions[(i * 3) + 2] * mScale;
 		vertex.Position = vector;
 
-		LOG_INFO("Adding Vertex {} x:{} y:{} z:{}", i, vector.x, vector.y, vector.z);
-		
+		//LOG_INFO("Adding Vertex {} x:{} y:{} z:{}", i, vector.x, vector.y, vector.z);
 
-
-		this->mVertices.push_back(vertex);
+		mVertices.push_back(vertex);
 	}
 
-	if (!this->mVertices.size())
+	if (!mVertices.size())
 	{
 		LOG_ERROR("Mesh is not loaded!");
 		return;
 	}
 
-	GLCall(glGenVertexArrays(1, &this->VAO));  // Vertex Array	
-	GLCall(glGenBuffers(1, &this->VBO));       // Vertex Buffer
-	GLCall(glGenBuffers(1, &this->EBO));       // Index Buffer
+	GLCall(glGenVertexArrays(1, &VAO));  // Vertex Array	
+	GLCall(glGenBuffers(1, &VBO));       // Vertex Buffer
+	GLCall(glGenBuffers(1, &EBO));       // Index Buffer
 
 
-	GLCall(glBindVertexArray(this->VAO));
+	GLCall(glBindVertexArray(VAO));
 	// Vertex Buffer
-	glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
-	glBufferData(GL_ARRAY_BUFFER, this->mVertices.size() * sizeof(Vertex), &this->mVertices[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, mVertices.size() * sizeof(Vertex), &mVertices[0], GL_STATIC_DRAW);
 
 	// Index Buffer
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->mIndices.size() * sizeof(unsigned int), &this->mIndices[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIndices.size() * sizeof(unsigned int), &mIndices[0], GL_STATIC_DRAW);
 
 	// Vertex Positions 
 	GLCall(glEnableVertexAttribArray(0));
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
 
 	// Unbind cleanup
 	glBindVertexArray(0);
 
+
+
 }
 
-LightCube::~LightCube()
+
+
+
+
+/// Plane 
+
+SimplePlane::SimplePlane(float pSize, bool pReverseNormals /*= false*/)
+	:mScale(pSize)
+{
+	setupMesh();
+
+}
+
+
+
+SimplePlane::~SimplePlane()
 {
 
 
 }
 
-void LightCube::draw(GLenum pMode /*= GL_FILL*/)
+void SimplePlane::Draw(GLenum pMode /*= GL_FILL*/)
 {
 	//LOG_INFO("Rendering Cube with polycount {}, assimp polycount {}", this->mVertices.size(), mVertices.size());
-	glBindVertexArray(this->VAO);
+	glBindVertexArray(VAO);
 	// I'm not sure why indices.size() works and not mVertices.size() TODO: invesitgate this!
+	//LOG_INFO("Drawing simple cube {}", mIndices.size());
 	glDrawElements(GL_TRIANGLES, mIndices.size(), GL_UNSIGNED_INT, nullptr);
 	glBindVertexArray(0);
 
 }
 
+void SimplePlane::setupMesh()
+{
+
+	std::vector<float>positions = {
+	-1.0f,  1.0f, 0.0f, // 0
+	-1.0f, -1.0f, 0.0f, // 1
+	 1.0f, -1.0f, 0.0f, // 2
+	-1.0f,  1.0f, 0.0f, // 3
+	 1.0f, -1.0f, 0.0f, // 4
+	 1.0f, 1.0f, 0.0f   // 5
+	};
+
+	std::vector<float>uvs = {
+	0.0f, 1.0f, // 0
+	0.0f, 0.0f, // 1
+	1.0f, 0.0f, // 2
+	0.0f, 1.0f, // 3
+	1.0f, 0.0f, // 4
+	1.0f, 1.0f  // 5
+	};
+
+	mIndices = {
+		0, 1, 2, 3, 4, 5
+	};
+
+	//LOG_DEBUG("MIndices count {}", mIndices.size());
+
+	for (unsigned int i = 0; i < positions.size() / 3; i++)
+	{
+		Vertex vertex;
+		// Process vertex positions, normals and tex coords
+
+		// VERTEX
+		glm::vec3 vector;
+		vector.x = positions[i * 3] * mScale;
+		vector.y = positions[(i * 3) + 1] * mScale;
+		vector.z = positions[(i * 3) + 2] * mScale;
+		vertex.Position = vector;
+		//LOG_INFO("Adding Vertex {} x:{} y:{} z:{}", i, vector.x, vector.y, vector.z);
+
+		// UV
+		vertex.TexCoords = glm::vec2(uvs[i * 2], uvs[(i * 2) + 1]);
+		mVertices.push_back(vertex);
+	}
+
+	if (!mVertices.size())
+	{
+		LOG_ERROR("Mesh is not loaded!");
+		return;
+	}
+
+	GLCall(glGenVertexArrays(1, &VAO));  // Vertex Array	
+	GLCall(glGenBuffers(1, &VBO));       // Vertex Buffer
+	GLCall(glGenBuffers(1, &EBO));       // Index Buffer
+
+
+	GLCall(glBindVertexArray(VAO));
+	// Vertex Buffer
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, mVertices.size() * sizeof(Vertex), &mVertices[0], GL_STATIC_DRAW);
+
+	// Index Buffer
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIndices.size() * sizeof(unsigned int), &mIndices[0], GL_STATIC_DRAW);
+
+	// Vertex Positions 
+	GLCall(glEnableVertexAttribArray(0));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+
+	// vertex texture coords
+	GLCall(glEnableVertexAttribArray(2));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
+
+
+	// Unbind cleanup
+	glBindVertexArray(0);
+
+
+
+}
 

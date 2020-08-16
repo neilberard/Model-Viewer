@@ -10,8 +10,8 @@
 
 
 struct Vertex {
-	glm::vec4 Position;
-	glm::vec4 Normal;
+	glm::vec3 Position;
+	glm::vec3 Normal;
 	glm::vec2 TexCoords;
 	glm::vec3 BaryCentricCoords;
 };
@@ -40,18 +40,33 @@ private:
 
 };
 
-class LightCube {
+class SimpleCube {
 public:
-	float scale;
-
+	float mScale;
 	std::vector<Vertex> mVertices;
 	std::vector<unsigned int> mIndices;
 	std::vector<TextureID> mTextures;
-	LightCube(float pSize=1.0f);
-	~LightCube();
+	SimpleCube(float pSize, bool pReverseNormals=false);
+	~SimpleCube();
 	void draw(GLenum pMode = GL_FILL);
+	void setupMesh();
 private:
 	unsigned int VAO, VBO, EBO;
+};
+
+
+class SimplePlane {
+
+public:
+	float mScale;
+	std::vector<Vertex> mVertices;
+	std::vector<unsigned int> mIndices;
+	std::vector<TextureID> mTextures;
+	SimplePlane(float pSize, bool pReverseNormals = false);
+	~SimplePlane();
+	void Draw(GLenum pMode = GL_FILL);
 	void setupMesh();
+private:
+	unsigned int VAO, VBO, EBO;
 
 };
