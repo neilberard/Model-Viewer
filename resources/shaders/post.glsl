@@ -20,7 +20,22 @@ v_TexCoord = texCoord;
 in vec2 v_TexCoord;
 out vec4 FragColor;
 uniform sampler2D u_Texture;
+uniform float u_Near;
+uniform float u_Far;
+
 const float offset = 1.0f / 300.0f;
+
+/* const float u_Near = 0.3f;
+const float u_Far = 5.0f; */
+
+
+float LinearizeDepth(float depth)
+{
+float z = (depth * 2.0) - 1.0;
+return (2.0 * u_Near * u_Far) / (u_Far + u_Near - z * (u_Far - u_Near));
+}
+
+
 
 void main()
 {
@@ -49,6 +64,13 @@ void main()
     1.0 / 16, 2.0 / 16, 1.0 / 16  
 ); */
 
+	
+	
+	
+    float depth = LinearizeDepth(texture(u_Texture, v_TexCoord).z) / u_Far;
+    vec4 color = vec4(vec3(depth), 1.0) + vec4(0.1, 0.1, 0.1, 1.0);
+
+
 	vec3 sampleTex[9];
 	for(int i = 0; i < 9; i++)
 	{
@@ -59,10 +81,12 @@ void main()
 	for(int i = 0; i < 9; i++){
 		col += sampleTex[i] * kernel[i];
 	}
-	
-	
 
-	FragColor = vec4(col, 1.0);
+	depth = texture(u_Texture, v_TexCoord).r;
+	FragColor = vec4(1.0) - vec4(vec3(depth), 1.0);
+	//FragColor = vec4(vec3(texture(u_Texture, v_TexCoord).z), 1.0);
+	//FragColor = vec4(vec3(gl_FragCoord.z), 1.0);
+	//FragColor = vec4(col, 1.0);
 	//FragColor = vec4(1.0) - texture(u_Texture, v_TexCoord);
 
 }

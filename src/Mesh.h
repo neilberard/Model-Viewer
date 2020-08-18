@@ -30,7 +30,11 @@ public:
 
 	bool mDebug = true;
 
-	Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<TextureID> textures);
+	// For shadows. If this is considered ground or floor.
+	bool mFloor = false;
+	std::string mName;
+
+	Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<TextureID> textures, std::string meshName);
 	~Mesh();
 	void draw();
 

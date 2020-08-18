@@ -52,10 +52,10 @@ uniform int u_DrawMode;
 //Forward Lights
 uniform vec3 u_LightPosA;
 uniform vec3 u_LightColorA;
-uniform vec3 u_LightPosB;
-uniform vec3 u_LightColorB;
-uniform vec3 u_LightPosC;
-uniform vec3 u_LightColorC;
+//uniform vec3 u_LightPosB;
+//uniform vec3 u_LightColorB;
+//uniform vec3 u_LightPosC;
+//uniform vec3 u_LightColorC;
 
 
 uniform float u_SpecIntensity;
@@ -67,8 +67,8 @@ uniform float u_Far;
 
 uniform sampler2D u_Texture;
 uniform samplerCube u_Sky;
+uniform int u_DrawReflections;
 uniform int u_DrawTextures;
-
 
 
 out vec4 FragColor;
@@ -111,15 +111,23 @@ void main()
 			 // Reflection
 			vec3 I = normalize(v_Position - u_CameraPos);
 			vec3 R = reflect(I, normalize(v_Normal));
-			vec3 reflectColor = vec3(texture(u_Sky, R).rgb);
-			 
+			
+			
+			vec3 reflectColor = vec3(texture(u_Sky, R).rgb) * .8;
+			if(u_DrawReflections != 1)
+			{
+				reflectColor = vec3(0.0);
+			}
+	
+
 			 // Diffuse
-			 
+			
 			float diff = max(dot(lightAngle, norm), 0.0); // Prevent Negative Values
 			vec3 diffuse = diff * u_LightColorA;
-			vec3 ambient = vec3(0.1f);
+			vec3 ambient = vec3(0.25f);
 
-			FragColor  = vec4((ambient + diffuse + specular + reflectColor) * albedo * vec3(0.5), 1.0);	
+			//FragColor = vec4(reflectColor, 1.0);
+			FragColor  = vec4(((ambient + diffuse + specular + reflectColor) * albedo) / 2.0, 1.0);	
 			//FragColor = vec4(albedo * vec3(diff), 1.0);
     }
 	

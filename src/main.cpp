@@ -60,8 +60,11 @@ namespace Scene
 	glm::mat4 mvp = glm::mat4(1.0f);
 	std::vector<Shader*>shaders;
 
+	std::string cubeMapDir("../../extern/resources/textures/skyA/");
+	//std::string cubeMapDir("../../resources/textures/cubemaps/crater_lake/");
+	std::string cubeMapFormat("jpg");
 	// Turn Table
-	float spinSpeed = 0.005;
+	float spinSpeed = 0.000;
 	float scale = 1.0f;
 	glm::vec3 rotAxis(0.0, 1.0, 0.0);
 	glm::mat4 rotMat;
@@ -71,19 +74,25 @@ namespace Scene
 
 namespace Lights
 {
+	unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
 	bool showLights = true;
 	float scale = 0.05;
 	glm::vec3 lightColorA = glm::vec3(1.0f);
 	glm::mat4 lightScale = glm::scale(glm::mat4(1.0f), glm::vec3(scale));
-	glm::vec3 lightTranslate = glm::vec3(0.0f, 1.0f, 1.0f);	
+	glm::vec3 lightTranslate = glm::vec3(0.0f, 2.0f, .1f);	
+	// Shadows
+	float far_dist = 5.0f;
+	float near_dist = 0.0f;
 }
 
 namespace Shading
 {
 	bool wireFrameOnShaded = false;
-	bool drawShadows = false;
+	bool drawReflections = true;
+	bool drawShadows = true;
 	bool drawTextures = true;
 	bool drawSky = true;
+	bool drawDebug = false;
 	int mode = 0;
 	glm::vec3 diffuseColor = glm::vec3(0.5f);
 	float specIntensity = 1.0f;
@@ -101,8 +110,7 @@ GLfloat lastFrame = 0.0f;
 bool keys[1024];
 bool firstMouse = true;
 bool processMouse = false;
-float far_dist;
-float near_dist;
+
 Model assimpModel;
 
 
@@ -195,8 +203,10 @@ void ProcessUI()
 		if (ImGui::Button("Hot reload shaders", ImVec2(200, 50))) { ReloadShaders(); }
 		ImGui::Checkbox("Wireframe on shaded", &Shading::wireFrameOnShaded);
 		ImGui::Checkbox("Show Lights", &Lights::showLights);
+		ImGui::Checkbox("Draw Reflections", &Shading::drawReflections);
 		ImGui::Checkbox("Draw Shadows", &Shading::drawShadows);
 		ImGui::Checkbox("Draw Sky", &Shading::drawSky);
+		ImGui::Checkbox("Draw Debug", &Shading::drawDebug);
 		ImGui::Checkbox("Draw Textures", &Shading::drawTextures);
 		ImGui::Combo("Draw Mode", &Shading::mode, items, IM_ARRAYSIZE(items));
 		ImGui::ColorEdit3("Diffuse Color", &Shading::diffuseColor.x);
@@ -207,8 +217,8 @@ void ProcessUI()
 		//ImGui::SliderFloat("Zoom", &scale, 0.0f, 4.0f);
 		ImGui::SliderFloat3("Spin", &Scene::rotAxis.x, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpinSpeed", &Scene::spinSpeed, 0.0f, 0.05f);
-		//ImGui::SliderFloat("ZNear", &near_dist, 0.001f, 0.1f);
-		//ImGui::SliderFloat("ZFar", &far_dist, 0.001f, 1.0f);
+		ImGui::SliderFloat("ZNear", &Lights::near_dist, 0.0f, 2.0f);
+		ImGui::SliderFloat("ZFar", &Lights::far_dist, 0.001f, 10.0f);
 		ImGui::Separator();
 
 		ImGui::ColorEdit3("Light Color", &Lights::lightColorA.x);
@@ -229,6 +239,7 @@ void RenderGeo(Shader& geoShader)
 	geoShader.Bind();
 	geoShader.SetUniform1i("u_Sky", 0);
 	geoShader.SetUniform1i("u_DrawTextures", Shading::drawTextures);
+	geoShader.SetUniform1i("u_DrawReflections", Shading::drawReflections);
 	geoShader.SetUniform1i("u_DrawMode", Shading::mode);
 	geoShader.SetUniform1i("u_Wireframe", 0);
 	geoShader.SetUniform3f("u_LightPosA", Lights::lightTranslate);
@@ -237,8 +248,6 @@ void RenderGeo(Shader& geoShader)
 	geoShader.SetUniform3f("u_CameraPos", Scene::camera.Position());
 	geoShader.SetUniform1f("u_SpecIntensity", Shading::specIntensity);
 	geoShader.SetUniform1f("u_SpecFalloff", Shading::specFalloff);
-	geoShader.SetUniform1f("u_Far", .13);
-	geoShader.SetUniform1f("u_Near", .002);
 	geoShader.SetUniform1i("u_Texture", 1);
 	geoShader.SetUniformMat4f("u_MVP", Scene::mvp);
 	geoShader.SetUniformMat4f("u_ModelMatrix", Scene::rotMat);
@@ -287,7 +296,7 @@ void ProcessTransforms(float& a)
 	GLfloat currentFrame = (GLfloat)glfwGetTime();
 	deltaTime = currentFrame - lastFrame;
 	lastFrame = currentFrame;
-	Scene::proj = glm::perspective(Scene::camera.GetZoom(), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 1000.0f);
+	Scene::proj = glm::perspective(Scene::camera.GetZoom(), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 500.0f);
 	Scene::view = Scene::camera.GetViewMatrix();
 	a += Scene::spinSpeed;
 	Scene::rotMat = glm::rotate(glm::mat4(1.0f), a, glm::normalize(Scene::rotAxis));
@@ -337,16 +346,19 @@ int main(void)
 	SimplePlane renderPlane = SimplePlane(0.5f, false);
 
 	// Test Texture 
-	Texture checkerMap("../../resources/textures/checker512.png");
+	Texture checkerMap("../../extern/resources/textures/checker1024.png");
 
 	// Mesh Shader
 	Shader meshShader("../../resources/shaders/lambert.glsl");
-	Scene::shaders.push_back(&Shading::geoShader);
+	Scene::shaders.push_back(&meshShader);
 
 	// Post-process 
 	Shader postShader("../../resources/shaders/post.glsl");
 	Scene::shaders.push_back(&postShader);
 
+	// Shadow Pass
+	Shader simpleDepthShader("../../resources/shaders/simpleDepthShader.glsl");
+	Scene::shaders.push_back(&simpleDepthShader);
 
 	// light Cube
 	SimpleCube lightCube = SimpleCube(1.0f, false);
@@ -354,20 +366,22 @@ int main(void)
 	Shader lightShader("../../resources/shaders/light.glsl");
 	Scene::shaders.push_back(&lightShader);
 
+	// shadow shader 
+	Shader shadowShader("../../resources/shaders/shadows.glsl");
+	Scene::shaders.push_back(&shadowShader);
 
-	// Depth map shader 
-	Shader depthShader("../../resources/shaders/simpleDepthShader.glsl");
-	Scene::shaders.push_back(&depthShader);
+
+
 
 	// Skybox
 	std::vector<std::string>cubemap
 	{
-	"../../extern/resources/skybox/right.jpg",
-	"../../extern/resources/skybox/left.jpg",
-	"../../extern/resources/skybox/top.jpg",
-	"../../extern/resources/skybox/bottom.jpg",
-	"../../extern/resources/skybox/front.jpg",
-	"../../extern/resources/skybox/back.jpg"
+	Scene::cubeMapDir + "right" + "." + Scene::cubeMapFormat,
+	Scene::cubeMapDir + "left" + "." + Scene::cubeMapFormat,
+	Scene::cubeMapDir + "top" + "." + Scene::cubeMapFormat,
+	Scene::cubeMapDir + "bottom" + "." + Scene::cubeMapFormat,
+	Scene::cubeMapDir + "front" + "." + Scene::cubeMapFormat,
+	Scene::cubeMapDir + "back" + "." + Scene::cubeMapFormat
 	};
 	Skybox skyMap(cubemap);
 	Shader skyShader("../../resources/shaders/cubemap.glsl");
@@ -396,34 +410,6 @@ int main(void)
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	// SHADOWS //
-	//unsigned int depthMapFBO;
-	//glGenFramebuffers(1, &depthMapFBO);
-	//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-	//const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
-	//unsigned int depthMap;
-	//glGenTextures(1, &depthMap);
-	//glActiveTexture(GL_TEXTURE0 + 3);
-	//glBindTexture(GL_TEXTURE_2D, depthMap);
-	//glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	//glBindTexture(GL_TEXTURE_2D, 0);
-	//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
-	//glDrawBuffer(GL_NONE);
-	//glReadBuffer(GL_NONE);
-	//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE)
-	//{
-	//	LOG_DEBUG("Frame buffer complete! Yay!");
-	//}
-	//else
-	//{
-	//	LOG_ERROR("No Frame buffer!");
-	//}
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	// Shadows
-
 
 	// Frame buffer
 	unsigned int fbo;
@@ -434,9 +420,13 @@ int main(void)
 	unsigned int depthMap;
 	glGenTextures(1, &depthMap);
 	glBindTexture(GL_TEXTURE_2D, depthMap);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, WIDTH, HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, Lights::SHADOW_WIDTH, Lights::SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
@@ -455,7 +445,7 @@ int main(void)
 
 	skyMap.BindTexture(0);
 	checkerMap.BindTexture(1);
-	loadFBX("../../resources/fbx/box_scene.fbx");
+	loadFBX("../../resources/fbx/box_scene2.fbx");
 
 	scene = new SceneContext((int)WIDTH, (int)HEIGHT);  // Planning to use this class to handle all the global variables.
 	/* Loop until the user closes the window */
@@ -467,11 +457,62 @@ int main(void)
 
 		ProcessTransforms(a);
 		DoMovement();
+		glEnable(GL_DEPTH_TEST);
+		glPolygonMode(GL_FRONT, GL_FILL);
 
-		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		float near_plane = 1.0f, far_plane = 7.5f;
+		glm::mat4 lightProjection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, Lights::near_dist, Lights::far_dist);
+		glm::mat4 lightView = glm::lookAt(Lights::lightTranslate, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView * Scene::model * Scene::scaleMatrix;
+
+		if (Shading::drawShadows)
+		{
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_FRONT);
+			glViewport(0, 0, Lights::SHADOW_WIDTH, Lights::SHADOW_HEIGHT);
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+			glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+			glClear(GL_DEPTH_BUFFER_BIT);
+			simpleDepthShader.Bind();
+			simpleDepthShader.SetUniformMat4f("u_LightSpaceMatrix", lightSpaceMatrix * Scene::rotMat);
+			simpleDepthShader.SetUniformMat4f("u_Model", Scene::model);
+			assimpModel.Draw();
+			simpleDepthShader.UnBind();
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			glViewport(0, 0, WIDTH, HEIGHT);
+			glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		}
+		glViewport(0, 0, WIDTH, HEIGHT);
 		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glEnable(GL_DEPTH_TEST);
+		glCullFace(GL_BACK);
+
+
+		// RENDER SHADOW SHADER
+		shadowShader.Bind();
+		glActiveTexture(GL_TEXTURE0 + 2);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+
+
+		shadowShader.SetUniform1i("u_ShadowMap", 2);
+		shadowShader.SetUniform1i("u_Texture", 1);
+		shadowShader.SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
+		shadowShader.SetUniformMat4f("u_Projection", Scene::proj);
+		shadowShader.SetUniformMat4f("u_View", Scene::view);
+		shadowShader.SetUniformMat4f("u_Model", Scene::model * Scene::rotMat);
+		shadowShader.SetUniform3f("viewPos", Scene::camera.Position());
+		shadowShader.SetUniform3f("lightPos", Lights::lightTranslate);
+
+		assimpModel.Draw();
+
+
+		//RenderGeo(meshShader);
+
+
+		// Second pass
 		if (Shading::drawSky)
 		{
 			glCullFace(GL_FRONT);
@@ -487,54 +528,6 @@ int main(void)
 			glDepthMask(GL_TRUE);
 		}
 
-		RenderGeo(meshShader);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		
-		
-		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		glDisable(GL_DEPTH_TEST);
-		RenderGeo(meshShader);
-
-
-		// Second pass
-		postShader.Bind();
-		glDisable(GL_DEPTH_TEST);
-		glActiveTexture(GL_TEXTURE0 + 2);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
-		postShader.SetUniform1i("u_Texture", 2);
-		postShader.SetUniformMat4f("u_MVP", Scene::model);
-		renderPlane.Draw();
-		postShader.UnBind();
-
-
-
-		if (Shading::drawShadows)
-		{
-			//glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-			//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-			//depthShader.Bind();
-
-			//glClear(GL_DEPTH_BUFFER_BIT);
-
-			////---configure matrices here! -- //
-			//float near_plane = 1.0f, far_plane = 7.5f;
-			//glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-			//glm::mat4 lightView = glm::lookAt(glm::vec3(-2.0f, 4.0f, -1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0));
-			//glm::mat4 lightSpaceMatrix = lightProjection * lightView;
-			//depthShader.SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
-			//depthShader.SetUniformMat4f("model", Scene::model * Scene::scaleMatrix * Scene::rotMat);
-			//assimpModel.Draw();
-			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-			//ProcessUI();
-			//glfwSwapBuffers(window);
-			//glfwPollEvents();
-			//glViewport(0, 0, WIDTH, HEIGHT);
-			//continue;
-
-		}
-		
 		if (Lights::showLights)
 		{
 			glm::mat4 lightModel = glm::translate(glm::mat4(1.0f), Lights::lightTranslate);
@@ -546,6 +539,24 @@ int main(void)
 			glDepthMask(GL_TRUE);
 			lightCube.draw();
 		}
+
+
+		if (Shading::drawDebug)
+		{
+			postShader.Bind();
+			glDisable(GL_DEPTH_TEST);
+			glCullFace(GL_BACK);
+			glActiveTexture(GL_TEXTURE0 + 2);
+			glBindTexture(GL_TEXTURE_2D, depthMap);
+			postShader.SetUniform1f("u_Near", Lights::near_dist);
+			postShader.SetUniform1f("u_Far", Lights::far_dist);
+
+			postShader.SetUniform1i("u_Texture", 2);
+			postShader.SetUniformMat4f("u_MVP", Scene::model);
+			renderPlane.Draw();
+			postShader.UnBind();
+		}
+		
 
 		ProcessUI();
 		glfwSwapBuffers(window);

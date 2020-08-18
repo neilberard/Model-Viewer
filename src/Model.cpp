@@ -8,8 +8,6 @@ Model::Model(const char *path)
 	{
 		LOG_DEBUG("Previous Model was loaded. Need to cleanup first");
 	}
-
-
 	loadModel(path);
 }
 
@@ -62,6 +60,7 @@ void Model::processNode(aiNode *node, const aiScene *scene)
 	for (unsigned int i = 0; i < node->mNumMeshes; i++)
 	{
 		aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
+		LOG_DEBUG("loading Mesh: {}", mesh->mName.C_Str());
 		mMeshes.push_back(processMesh(mesh, scene));
 	}
 
@@ -131,8 +130,7 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 			indices.push_back(face.mIndices[j]);
 	}
 
-
-	return Mesh(vertices, indices, textures);
+	return Mesh(vertices, indices, textures, mesh->mName.C_Str());
 
 
 }

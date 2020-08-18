@@ -1,7 +1,7 @@
 #include "Mesh.h"
 
-Mesh::Mesh(std::vector<Vertex> pVertices, std::vector<unsigned int> pIndices, std::vector<TextureID> pTextures)
-	:mVertices(pVertices), mIndices(pIndices), mTextures(pTextures)
+Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<TextureID> textures, std::string meshName) 
+	:mVertices(vertices), mIndices(indices), mTextures(textures), mName(meshName)
 {
 	setupMesh();
 }
@@ -69,7 +69,24 @@ void Mesh::draw()
 		return;
 	}
 	glBindVertexArray(VAO);
-	glDrawElements(GL_TRIANGLES, mVertices.size(), GL_UNSIGNED_INT, nullptr);
+
+	//LOG_DEBUG(mName.c_str());
+
+	if (mName == "Plane")
+	{
+		GLint params;
+		glGetIntegerv(GL_CULL_FACE_MODE, &params);
+
+		glCullFace(GL_BACK);
+		glDrawElements(GL_TRIANGLES, mVertices.size(), GL_UNSIGNED_INT, nullptr);
+		glCullFace(params);
+	}
+	else
+	{
+		glDrawElements(GL_TRIANGLES, mVertices.size(), GL_UNSIGNED_INT, nullptr);
+	}
+
+
 	glBindVertexArray(0);
 }
 

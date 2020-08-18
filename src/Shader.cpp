@@ -31,6 +31,8 @@ void Shader::UnBind() const
 
 void Shader::Reload()
 {
+	LOG_DEBUG("Reloading Shader {}", m_FilePath.c_str());
+
 	m_Active = false;
 	m_UniformLocationCache.clear(); // Remove ID location cache.
 	unsigned int delete_id = m_RendererID; 
@@ -113,7 +115,7 @@ ShaderProgramSource Shader::ParseShader(const std::string& filepath)
 	}
 	else 
 	{
-		LOG_ERROR("\nCould not find shader! Check file path! {}", filepath);
+		LOG_ERROR("\nCould not find shader! Check file path! {}", filepath.c_str());
 	}
 
 
