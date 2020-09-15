@@ -2,13 +2,19 @@
 #version 330 core
 
 layout(location = 0) in vec4 position; // Location is int id of the vertex attribute pointer TODO: Change these to vec3
+layout (std140) uniform uBlock
+{
+    mat4 uProjection;
+    mat4 uView;
+};
+
+uniform mat4 uModel;
 
 
-uniform mat4 u_MVP;
 
 void main()
 {
-gl_Position = u_MVP * position;
+gl_Position = uProjection * uView * uModel * position;
 }
 
 

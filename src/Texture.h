@@ -9,39 +9,41 @@
 #include "stb/stb_image.h"
 
 
-class Skybox
+class BaseTexture
+{
+protected:
+	unsigned int mTextureID;
+	unsigned int mSlot;
+public:
+	virtual unsigned int GetSlot();
+	virtual void BindTexture(unsigned int pSlot = 0);
+	virtual void Unbind();
+};
+
+
+class Skybox : public BaseTexture
 {
 public:
 	Skybox(std::vector<std::string> faces);
 	~Skybox();
 
-	void BindTexture(unsigned int slot = 0) const;
-	void Unbind() const;
-
-
-private:
-
+	protected:
 	std::vector<std::string> m_Faces;
-	unsigned int m_TextureID = 0;
 	void LoadCubemap();
 
 };
 
 
-class Texture
+class Texture : public BaseTexture
 {
 private:
-	unsigned int m_RendererID;
-	std::string m_FilePath;
-	unsigned char* m_LocalBuffer;
+	std::string mFilePath;
+	unsigned char* mLocalBuffer;
 	int m_Width, m_Height, m_BPP;
 
 public:
 	Texture(const std::string& path);
 	~Texture();
-
-	void BindTexture(unsigned int slot = 0) const;
-	void Unbind() const;
 
 	inline int GetWidth() const { return m_Width; }
 	inline int GetHeight() const { return m_Height; }

@@ -20,21 +20,22 @@ public:
 	Model(const char *path);
 
 	void Draw();
+	void Draw(GLenum pMode);
+	void LoadModel(std::string path);
+	void UnloadModel();
 
 	~Model();
 
 private:
-	std::vector<Mesh> mMeshes;
+	std::vector<Mesh*>mMeshes;
+	std::vector<TransformNode>mTransformNodes;
 	std::string directory;
 
 	bool mLoaded = false;
 
-
-	void loadModel(std::string path);
-
 	void processNode(aiNode *node, const aiScene *scene);
 
-	Mesh processMesh(aiMesh *mesh, const aiScene *scene);
+	void processMesh(aiMesh *mesh, const aiScene *scene);
 
 	std::vector<TextureID> loadMaterialTextures(aiMaterial *mat, aiTextureType type, std::string typeName);
 

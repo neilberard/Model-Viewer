@@ -2,11 +2,11 @@
 
 
 Shader::Shader(const std::string& filepath)
-	: m_FilePath(filepath), m_RendererID(0)
+	: mFilePath(filepath), mRendererID(0), mBinded(false)
 {
 	ShaderProgramSource source = Shader::ParseShader(filepath);
-	m_RendererID = CreateShader(source.VertexSource, source.FragmentSource);	
-	m_Active = true;
+	mRendererID = CreateShader(source.VertexSource, source.FragmentSource);	
+	mValid = true;
 }
 
 Shader::Shader()
@@ -14,38 +14,76 @@ Shader::Shader()
 	LOG_WARNING("Shader Not Initialized!");
 }
 
+Shader::Shader(const std::string& filepath, unsigned int pUniformBlock, const std::string& pUniformBlockStr)
+	: mFilePath(filepath), mRendererID(0), mUniformBlock(pUniformBlock)
+{
+	ShaderProgramSource source = Shader::ParseShader(filepath);
+	mRendererID = CreateShader(source.VertexSource, source.FragmentSource);
+	mValid = true;
+
+	// Set Uniform Block, used for global values such as Proj, View  matrices etc..
+	Bind();
+	SetUniform1i(pUniformBlockStr.c_str(), mUniformBlock);
+	UnBind();
+
+}
+
 Shader::~Shader()
 {
-	GLCall(glDeleteProgram(m_RendererID));
+	GLCall(glDeleteProgram(mRendererID));
 }
 
-void Shader::Bind() const
+void Shader::Bind()
 {
-	GLCall(glUseProgram(m_RendererID));
+	if (mValid != true)
+	{
+		LOG_ERROR("Cannot Bind inactive Shader! Check compilation status. {}", mFilePath);
+		return;
+	}
+	GLCall(glUseProgram(mRendererID));
+	mBinded = true;
 }
 
-void Shader::UnBind() const
+void Shader::UnBind()
 {
+	if (mValid != true)
+	{
+		LOG_ERROR("Cannot UnBind inactive Shader! Check compilation status. {}", mFilePath);
+		return;
+	}
+
 	GLCall(glUseProgram(0));
+	mBinded = false;
 }
 
 void Shader::Reload()
 {
-	LOG_DEBUG("Reloading Shader {}", m_FilePath.c_str());
+	LOG_DEBUG("Reloading Shader {}", mFilePath.c_str());
 
-	m_Active = false;
-	m_UniformLocationCache.clear(); // Remove ID location cache.
-	unsigned int delete_id = m_RendererID; 
-	ShaderProgramSource source = Shader::ParseShader(m_FilePath);
-	m_RendererID = CreateShader(source.VertexSource, source.FragmentSource);
+	mValid = false;
+	mUniformLocationCache.clear(); // Remove ID location cache.
+	unsigned int delete_id = mRendererID; 
+	ShaderProgramSource source = Shader::ParseShader(mFilePath);
+	mRendererID = CreateShader(source.VertexSource, source.FragmentSource);
 	GLCall(glDeleteProgram(delete_id)); // Cleanup
-	m_Active = true;
-
+	mValid = true;
 }
+
+
 
 void Shader::SetUniform1i(const std::string& name, int value)
 {
 	GLCall(glUniform1i(GetUniformLocation(name), value));
+}
+
+void Shader::SetUniform1i(const std::string& name, bool value)
+{
+	GLCall(glUniform1i(GetUniformLocation(name), (int)value));
+}
+
+void Shader::SetUniform1i(const std::string& name, unsigned int value)
+{
+	GLCall(glUniform1i(GetUniformLocation(name), (int)value));
 }
 
 void Shader::SetUniform1f(const std::string& name, float value)
@@ -72,7 +110,6 @@ void Shader::SetUniform4f(const std::string& name, float v0, float v1, float v2,
 void Shader::SetUniform4f(const std::string& name, glm::vec4 value)
 {
 	GLCall(glUniform4fv(GetUniformLocation(name), 1, &value[0]));
-
 }
 
 void Shader::SetUniformMat4f(const std::string& name, const glm::mat4& matrix)
@@ -82,26 +119,30 @@ void Shader::SetUniformMat4f(const std::string& name, const glm::mat4& matrix)
 
 GLint Shader::GetUniformLocation(const std::string& name)
 {
-	if (!m_Active)
+	if (!mBinded) 
+	{
+		LOG_ERROR("Cannot set uniform. Shader is not Binded! {}", mFilePath);
+	}
+
+	if (!mValid)
 	{
 		// Shader is not active, return false location.
+		LOG_ERROR("Cannot set uniform. Shader is not Valid! {}", mFilePath);
 		return -1;
 	}
 
-
-	if (m_UniformLocationCache.find(name) != m_UniformLocationCache.end())
+	if (mUniformLocationCache.find(name) != mUniformLocationCache.end())
 	{
-		return m_UniformLocationCache[name];
+		return mUniformLocationCache[name];
 	}
 
-	GLCall(GLint location = glGetUniformLocation(m_RendererID, name.c_str()));
+	GLCall(GLint location = glGetUniformLocation(mRendererID, name.c_str()));
 	if (location == -1)
 	{
-		LOG_WARNING("Warning! Uniform {} doesnt exist for this shader {}!", name, m_FilePath);
-		//std::cout << "Warning: uniform " << name << "" << " doesn't exist" << std::endl;
+		LOG_WARNING("Warning! Uniform {} doesnt exist for this shader {}!", name, mFilePath);
 	}
 
-	m_UniformLocationCache[name] = location;
+	mUniformLocationCache[name] = location;
 	return location;
 
 }
@@ -131,16 +172,26 @@ ShaderProgramSource Shader::ParseShader(const std::string& filepath)
 
 	ShaderType type = ShaderType::NONE;
 
+	int lineNumber = 0;
+
 	while (getline(stream, line))
 	{
-
+		lineNumber++;
 		if (line.find("#shader") != std::string::npos)
 		{
 			if (line.find("vertex") != std::string::npos)
+			{
 				type = ShaderType::VERTEX;
+				mVertexBegin = lineNumber;
+			}
+
 
 			else if (line.find("fragment") != std::string::npos)
+			{
 				type = ShaderType::FRAGMENT;
+				mFragmentBegin = lineNumber;
+			}
+
 		}
 
 		else
@@ -171,7 +222,31 @@ unsigned int Shader::CompileShader(unsigned int type, const std::string& source)
 		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
 		char* message = (char*)alloca(length * sizeof(char));
 		glGetShaderInfoLog(id, length, &length, message);
-		LOG_ERROR("Failed to compile {} {}", (type == GL_VERTEX_SHADER ? "Vertex" : "fragment"), message);
+
+
+		// Retrieve the line number from the error message.
+		// Assuming first set of parentheses contains the line number. 
+
+		bool collectStrValues = false;
+		std::string lineStr = "";
+
+		for (int i = 0; i < length; i++)
+		{
+			if (message[i] == ')') break;
+			if (collectStrValues) lineStr.push_back(message[i]);
+			if (message[i] == '(') collectStrValues = true;
+
+		}
+
+		int lineNumber = std::stoi(lineStr);
+		lineNumber = (type == GL_VERTEX_SHADER ? lineNumber + mVertexBegin : lineNumber + mFragmentBegin);
+		LOG_ERROR("\nShader Path: {}\nType: {}\nFailed to compile line: {}\nError Message:  {}", 
+			      mFilePath.c_str(), 
+			     (type == GL_VERTEX_SHADER ? "Vertex" : "fragment"), 
+			      lineNumber, \
+			      message);
+
+
 		glDeleteShader(id);
 		return 0;
 	}

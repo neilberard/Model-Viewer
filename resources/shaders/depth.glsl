@@ -17,6 +17,15 @@ uniform int u_Wireframe;
 uniform unsigned int u_RenderMode; 
 
 
+layout (std140) uniform uBlock
+{
+    mat4 uProjection;
+    mat4 uView;
+};
+
+
+
+
 
 void main()
 {

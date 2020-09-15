@@ -19,7 +19,7 @@ private:
 #ifndef NDEBUG // DEBUG
 #define SET_LOG_LEVEL_DEBUG 
 #define LOG_CRITICAL(...) if(Log::GetClientLogger() != NULL) ::Log::GetClientLogger()->critical(__VA_ARGS__)
-#define LOG_ERROR(...) if(Log::GetClientLogger() != NULL) ::Log::GetClientLogger()->error(__VA_ARGS__)
+#define LOG_ERROR(...) if(Log::GetClientLogger() != NULL) ::Log::GetClientLogger()->error(__VA_ARGS__); __debugbreak()
 #define LOG_WARNING(...) if(Log::GetClientLogger() != NULL) ::Log::GetClientLogger()->warn(__VA_ARGS__)
 #define LOG_INFO(...) if(Log::GetClientLogger() != NULL) ::Log::GetClientLogger()->info(__VA_ARGS__)
 #define LOG_DEBUG(...) if(Log::GetClientLogger() != NULL) ::Log::GetClientLogger()->debug(__VA_ARGS__)

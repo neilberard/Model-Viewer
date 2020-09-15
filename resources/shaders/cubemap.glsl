@@ -3,18 +3,19 @@
 
 layout(location = 0) in vec3 position; 
 
-uniform mat4 u_Projection;
-uniform mat4 u_View;
-uniform mat4 u_MVP;
+layout (std140) uniform uBlock
+{
+    mat4 uProjection;
+    mat4 uView;
+};
+
 
 out vec3 TexCoords;
 
 void main()
 {
-	//Normalize Z
 	TexCoords = vec3(position);
-	//gl_Position = u_Projection * u_View * position;
-	gl_Position = u_MVP * vec4(TexCoords, 0.01);
+	gl_Position = uProjection * uView * vec4(TexCoords, 0.01);
 }
 
 
@@ -23,11 +24,13 @@ void main()
 
 out vec4 FragColor;
 in vec3 TexCoords;
-uniform samplerCube skybox;
+uniform samplerCube uSky;
 
 void main()
 {
-	FragColor = texture(skybox, TexCoords);
-	//FragColor = vec4(TexCoords.x, TexCoords.y, 0.0, 1.0) + texture(skybox, TexCoords);
+	FragColor = texture(uSky, TexCoords);
+
+
+
 }
 

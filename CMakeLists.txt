@@ -44,6 +44,9 @@ set(MODEL_VIEWER_SOURCE_LIST
 	"src/Log.cpp"
 	"src/Scene.cpp"
 	"src/Scene.h"
+	"src/Render.h"
+	"src/Render.cpp"
+	
 )
 
 

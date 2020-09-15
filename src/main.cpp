@@ -25,8 +25,9 @@
 #include "Debugging.h"
 #include "Model.h"
 #include "Shader.h"
-#include "scene.h"
+//#include "scene.h"
 #include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
 #include "imgui/imgui.h"
 #include "imgui/examples/imgui_impl_glfw.h"
 #include "imgui/examples/imgui_impl_opengl3.h"
@@ -34,86 +35,116 @@
 #include <iostream>
 #include "Camera.h"
 #include "Texture.h"
+#include "Render.h"
 #include "Log.h"
 
 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+//SceneContext* scene;
 
-
-SceneContext* scene;
-
-// UI STATE
-namespace Scene
+namespace
 {
-	//TODO: Add active camera index.
-	Camera camera(glm::vec3(0.0f, 0.5f, 3.0f));
-	SimpleCube* sky = NULL;
-	SimpleCube* lightCube = NULL;
-	
-	glm::mat4 proj = glm::mat4(1.0f);
-	glm::mat4 view = glm::mat4(1.0f);
-	glm::mat4 model = glm::mat4(1.0f);
-	glm::mat4 scaleMatrix = glm::mat4(1.0f);
-	glm::mat4 viewRot = glm::mat4(1.0f); // Just the rotation matrix
-	glm::mat4 mvp = glm::mat4(1.0f);
-	std::vector<Shader*>shaders;
 
-	std::string cubeMapDir("../../extern/resources/textures/skyA/");
-	//std::string cubeMapDir("../../resources/textures/cubemaps/crater_lake/");
-	std::string cubeMapFormat("jpg");
-	// Turn Table
-	float spinSpeed = 0.000;
-	float scale = 1.0f;
-	glm::vec3 rotAxis(0.0, 1.0, 0.0);
-	glm::mat4 rotMat;
-	glm::vec3 translate(0.0);
 
+
+	unsigned int uboBlock;
+
+
+	// UI STATE
+	namespace Scene
+	{
+		//TODO: Add active camera index.
+		Camera camera(glm::vec3(0.0f, 0.5f, 3.0f));
+		SimpleCube* sky = NULL;
+		SimpleCube* lightCube = NULL;
+
+		glm::mat4 proj = glm::mat4(1.0f);
+		glm::mat4 view = glm::mat4(1.0f);
+		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 scaleMatrix = glm::mat4(1.0f);
+		glm::mat4 viewRot = glm::mat4(1.0f); // Just the rotation matrix
+		glm::mat4 mvp = glm::mat4(1.0f);
+		std::vector<Shader*>shaders;
+
+		std::string cubeMapDir("../../extern/resources/textures/skyA/");
+		//std::string cubeMapDir("../../resources/textures/cubemaps/crater_lake/");
+		std::string cubeMapFormat("jpg");
+		// Turn Table
+		float spinSpeed = 0.000;
+		float scale = 1.0f;
+		glm::vec3 rotAxis(0.0, 1.0, 0.0);
+		glm::mat4 rotMat;
+		glm::vec3 translate(0.0);
+
+	}
+
+	namespace Lights
+	{
+		unsigned int shadow_resolution = 1024;
+		unsigned int SHADOW_WIDTH = shadow_resolution, SHADOW_HEIGHT = shadow_resolution;
+		bool showLights = true;
+		float shadowBias = 0.05;
+		float scale = 0.05;
+		glm::vec3 lightColorA = glm::vec3(1.0f);
+		glm::mat4 lightScale = glm::scale(glm::mat4(1.0f), glm::vec3(scale));
+		glm::vec3 lightTranslate = glm::vec3(-5.f, 2.0f, .1f);
+		// Shadows
+		float far_dist = 20.0f;
+		float near_dist = 0.0f;
+	}
+
+	namespace Shading
+	{
+		bool wireFrameOnShaded = false;
+		bool drawReflections = true;
+		bool drawShadows = true;
+		bool drawTextures = false;
+		bool drawNormals = true;
+		bool drawSky = true;
+		bool drawDebug = false;
+		int mode = 0;
+		glm::vec3 diffuseColor = glm::vec3(0.5f);
+		float specIntensity = 1.0f;
+		float specFalloff = 32.0f;
+		Shader geoShader;
+
+		// TEXTURE SLOTS
+		int skyTextureSlot = 0;
+		int shadowTextureSlot = 1;
+		int depthTextureSlot = 2;
+		int normalTextureSlot = 3;
+		int diffuseTextureSlot = 4;
+
+
+	}
+
+	// DRAW MODE OPTIONS TODO: figure out how to convert this to an enum
+	const char* items[]{ "Diffuse", "Normal", "Texture", "ZDepth", "Reflections", "UV" };
+
+	GLuint SCREEN_WIDTH = 1080, SCREEN_HEIGHT = 720;
+	GLfloat deltaTime = 0.0f;
+	GLfloat lastFrame = 0.0f;
+	bool keys[1024];
+	bool firstMouse = true;
+	bool processMouse = false;
 }
 
-namespace Lights
+
+// ------------------------Uniform Block 
+
+struct UniformBlock
+	// Global Uniforms that can be accessed by all shaders
 {
-	unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
-	bool showLights = true;
-	float scale = 0.05;
-	glm::vec3 lightColorA = glm::vec3(1.0f);
-	glm::mat4 lightScale = glm::scale(glm::mat4(1.0f), glm::vec3(scale));
-	glm::vec3 lightTranslate = glm::vec3(0.0f, 2.0f, .1f);	
-	// Shadows
-	float far_dist = 5.0f;
-	float near_dist = 0.0f;
-}
-
-namespace Shading
-{
-	bool wireFrameOnShaded = false;
-	bool drawReflections = true;
-	bool drawShadows = true;
-	bool drawTextures = true;
-	bool drawSky = true;
-	bool drawDebug = false;
-	int mode = 0;
-	glm::vec3 diffuseColor = glm::vec3(0.5f);
-	float specIntensity = 1.0f;
-	float specFalloff = 32.0f;
-	Shader geoShader;
-}
-
-// DRAW MODE OPTIONS TODO: figure out how to convert this to an enum
-const char* items[]{ "Diffuse", "Normal", "Texture", "ZDepth", "Reflections", "UV" };
+public:
+	glm::mat4 mProj;
+	glm::mat4 mView;
+};
 
 
-const GLuint WIDTH = 1080, HEIGHT = 720;
-GLfloat deltaTime = 0.0f;
-GLfloat lastFrame = 0.0f;
-bool keys[1024];
-bool firstMouse = true;
-bool processMouse = false;
 
 Model assimpModel;
-
-
 
 // Returns an empty string if dialog is canceled
 const char* pfilter = "All Files (*.*)\0*.*\0";
@@ -143,37 +174,29 @@ std::string getexepath()
 	return std::string(result, GetModuleFileName(NULL, result, MAX_PATH));
 }
 
-void loadFBX(std::string fileNameStr="")
+void loadFBX(std::string fileNameStr = "")
 {
 	if (!fileNameStr.size())
 	{
 		fileNameStr = openfilename(pfilter).c_str();
 		LOG_DEBUG("DONE LOADING ASSIMP");
 	}
-	assimpModel = Model(fileNameStr.c_str());
+	assimpModel.LoadModel(fileNameStr.c_str());
 }
 
-void ScreenResize(int width, int height, glm::mat4 &proj)
+void WindowSizeCallback(GLFWwindow *window, int width, int height)
 {
-	float ratio = float(width) / float(height);
-
-	proj = glm::ortho(-1.0f * ratio, // Left 
-		1.0f * ratio, // right
-		-1.0f, // bottom 
-		1.0f, // Top
-		-5.0f, // near 
-		5.0f); // far
-}
-
-
+	SCREEN_WIDTH = width;
+	SCREEN_HEIGHT = height;
+};
 void KeyCallback(GLFWwindow *window, int key, int scanecode, int action, int mode);
 void ScrollCallback(GLFWwindow *window, double xOffset, double yOffset);
 void MouseCallback(GLFWwindow *window, double xPos, double yPos);
-void DoMovement();
+void DoCameraMovement();
 
-
-GLfloat lastX = WIDTH / 2.0f;
-GLfloat lastY = WIDTH / 2.0f;
+// Mouse movement callback
+GLfloat lastX = SCREEN_WIDTH / 2.0f;
+GLfloat lastY = SCREEN_WIDTH / 2.0f;
 
 
 void ReloadShaders()
@@ -196,14 +219,17 @@ void ProcessUI()
 	{
 
 		ImGui::Begin(" ");                          // Create a window called "Hello, world!" and append into it.
+		//ImGui::SetWindowPos(ImVec2(0.9f, 1.0f), ImGuiCond_FirstUseEver);
+
 		if (ImGui::Button("Load FBX"))
 		{
 			loadFBX();
 		}
-		if (ImGui::Button("Hot reload shaders", ImVec2(200, 50))) { ReloadShaders(); }
+		if (ImGui::Button("Hot reload shaders", ImVec2(200, 30))) { ReloadShaders(); }
 		ImGui::Checkbox("Wireframe on shaded", &Shading::wireFrameOnShaded);
 		ImGui::Checkbox("Show Lights", &Lights::showLights);
 		ImGui::Checkbox("Draw Reflections", &Shading::drawReflections);
+		ImGui::Checkbox("Draw Normals", &Shading::drawNormals);
 		ImGui::Checkbox("Draw Shadows", &Shading::drawShadows);
 		ImGui::Checkbox("Draw Sky", &Shading::drawSky);
 		ImGui::Checkbox("Draw Debug", &Shading::drawDebug);
@@ -212,17 +238,22 @@ void ProcessUI()
 		ImGui::ColorEdit3("Diffuse Color", &Shading::diffuseColor.x);
 		ImGui::SliderFloat("Spec Intensity", &Shading::specIntensity, 0.0f, 1.0f);
 		ImGui::SliderFloat("Spec Falloff", &Shading::specFalloff, 0.0f, 128.0f);
+		ImGui::Separator();
+		ImGui::Text("Turn Table");
 
 		//ImGui::SliderFloat2("Move", &translate.x, -1.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
 		//ImGui::SliderFloat("Zoom", &scale, 0.0f, 4.0f);
 		ImGui::SliderFloat3("Spin", &Scene::rotAxis.x, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpinSpeed", &Scene::spinSpeed, 0.0f, 0.05f);
 		ImGui::SliderFloat("ZNear", &Lights::near_dist, 0.0f, 2.0f);
-		ImGui::SliderFloat("ZFar", &Lights::far_dist, 0.001f, 10.0f);
+		ImGui::SliderFloat("ZFar", &Lights::far_dist, 0.001f, 20.0f);
 		ImGui::Separator();
-
+		ImGui::Text("Lights");
+		ImGui::BeginGroup();
+		ImGui::SliderFloat("Shadow Bias", &Lights::shadowBias, 0.0001f, 0.1f);
 		ImGui::ColorEdit3("Light Color", &Lights::lightColorA.x);
-		ImGui::SliderFloat3("LightPos", &Lights::lightTranslate.x, -2.0f, 2.0f);
+		ImGui::SliderFloat3("LightPos", &Lights::lightTranslate.x, -5.0f, 5.0f);
+		ImGui::EndGroup();
 
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		ImGui::End();
@@ -232,77 +263,24 @@ void ProcessUI()
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void RenderGeo(Shader& geoShader)
-{
-
-	// DRAW SHADER //
-	geoShader.Bind();
-	geoShader.SetUniform1i("u_Sky", 0);
-	geoShader.SetUniform1i("u_DrawTextures", Shading::drawTextures);
-	geoShader.SetUniform1i("u_DrawReflections", Shading::drawReflections);
-	geoShader.SetUniform1i("u_DrawMode", Shading::mode);
-	geoShader.SetUniform1i("u_Wireframe", 0);
-	geoShader.SetUniform3f("u_LightPosA", Lights::lightTranslate);
-	geoShader.SetUniform3f("u_LightColorA", Lights::lightColorA);
-	geoShader.SetUniform3f("u_Color", Shading::diffuseColor);
-	geoShader.SetUniform3f("u_CameraPos", Scene::camera.Position());
-	geoShader.SetUniform1f("u_SpecIntensity", Shading::specIntensity);
-	geoShader.SetUniform1f("u_SpecFalloff", Shading::specFalloff);
-	geoShader.SetUniform1i("u_Texture", 1);
-	geoShader.SetUniformMat4f("u_MVP", Scene::mvp);
-	geoShader.SetUniformMat4f("u_ModelMatrix", Scene::rotMat);
-	glPolygonMode(GL_FRONT, GL_FILL);
-	glCullFace(GL_BACK);
-	glDepthMask(GL_TRUE);
-
-	assimpModel.Draw();
-
-	// Wireframe on shaded.
-	// Draw a second pass.
-	if (Shading::wireFrameOnShaded)
-	{
-		glPolygonMode(GL_FRONT, GL_LINE);
-		geoShader.SetUniform1i("u_Wireframe", Shading::wireFrameOnShaded);
-		geoShader.SetUniform3f("u_Color", 1.0f, 1.0f, 1.0f);
-		assimpModel.Draw();
-	}
-	Shading::geoShader.UnBind();
-}
-
-void RenderLights(Shader& lightShader)
-{
-	glm::mat4 lightModel = glm::translate(glm::mat4(1.0f), Lights::lightTranslate);
-	//glCullFace(GL_BACK);
-	lightShader.Bind();
-	lightShader.SetUniform3f("u_LightPosA", Lights::lightTranslate);
-	lightShader.SetUniform3f("u_LightColorA", Lights::lightColorA);
-	lightShader.SetUniformMat4f("u_MVP", Scene::proj * Scene::view * lightModel * Lights::lightScale);
-	glPolygonMode(GL_FRONT, GL_FILL);
-	if (Scene::lightCube) 
-	{ 
-		Scene::lightCube->draw(); 
-	}
-	else
-	{
-		LOG_WARNING("Light Cube not initialized!");
-	}
-
-	lightShader.UnBind();
-
-}
-
 void ProcessTransforms(float& a)
 {
 	GLfloat currentFrame = (GLfloat)glfwGetTime();
 	deltaTime = currentFrame - lastFrame;
 	lastFrame = currentFrame;
-	Scene::proj = glm::perspective(Scene::camera.GetZoom(), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 500.0f);
+	Scene::proj = glm::perspective(Scene::camera.GetZoom(), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 500.0f);
 	Scene::view = Scene::camera.GetViewMatrix();
 	a += Scene::spinSpeed;
 	Scene::rotMat = glm::rotate(glm::mat4(1.0f), a, glm::normalize(Scene::rotAxis));
 	Scene::model = glm::translate(glm::mat4(1.0f), Scene::translate);
 	Scene::scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(Scene::scale));
 	Scene::mvp = Scene::proj * Scene::view * Scene::model * Scene::scaleMatrix * Scene::rotMat;
+
+	// Update View Projection
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, uboBlock));
+	GLCall(glBufferSubData(GL_UNIFORM_BUFFER, offsetof(UniformBlock, mProj), sizeof(glm::mat4), glm::value_ptr(Scene::proj)));
+	GLCall(glBufferSubData(GL_UNIFORM_BUFFER, offsetof(UniformBlock, mView), sizeof(glm::mat4), glm::value_ptr(Scene::view)));
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 }
 
 int main(void)
@@ -321,7 +299,7 @@ int main(void)
 	}
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(WIDTH, HEIGHT, "NB Model Viewer", NULL, NULL);
+	window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "NB Model Viewer", NULL, NULL);
 	if (!window)
 	{
 		LOG_INFO("Closing Window");
@@ -329,9 +307,15 @@ int main(void)
 		return -1;
 	}
 
+
+
 	/* Make the window's context current */
 	glfwMakeContextCurrent(window);
+
+
+	//--------------------- CALLBACKS ----------------------- //
 	glfwSetKeyCallback(window, KeyCallback);
+	glfwSetWindowSizeCallback(window, WindowSizeCallback);
 	glfwSetCursorPosCallback(window, MouseCallback);
 	glfwSetScrollCallback(window, ScrollCallback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -341,16 +325,40 @@ int main(void)
 		LOG_CRITICAL("Glew failed to initialize!");
 
 	}
+
+	//---------------------Glew Initialized, Yay! -----------------------//
+
+
+
+
 	LOG_DEBUG("Running OPENGL {}", glGetString(GL_VERSION));
 
-	SimplePlane renderPlane = SimplePlane(0.5f, false);
+	GLCall(glGenBuffers(1, &uboBlock));
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, uboBlock));
+	GLCall(glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlock), NULL, GL_STATIC_DRAW));
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
+	GLCall(glBindBufferRange(GL_UNIFORM_BUFFER, 0, uboBlock, 0, sizeof(UniformBlock)));
 
+
+	// CREATE UBO BLOCK BEFORE INITIALIZING SHADERS!!
+
+	// ------------------- Scene Objects And Shaders ---------------------- //
+	// Used for displaying textures such as the depthmap in debug mode, 
+	SimplePlane renderPlane = SimplePlane(0.5f, false);
 	// Test Texture 
-	Texture checkerMap("../../extern/resources/textures/checker1024.png");
+	Texture diffuseMap("../../extern/resources/textures/Medieval_1K_diffuse.png");
+
+	// Normal Map
+	//Texture normalMap("../../extern/resources/textures/Medieval_1K_normal_flipped.png");
+	Texture normalMap("../../extern/resources/textures/brickwall_normal.jpg");
 
 	// Mesh Shader
-	Shader meshShader("../../resources/shaders/lambert.glsl");
-	Scene::shaders.push_back(&meshShader);
+	//Shader meshShader("../../resources/shaders/lambert.glsl", uboMatrices);
+	//Scene::shaders.push_back(&meshShader);
+
+	// BasicShader 
+	Shader basicShader("../../resources/shaders/basic.glsl");
+	Scene::shaders.push_back(&basicShader);
 
 	// Post-process 
 	Shader postShader("../../resources/shaders/post.glsl");
@@ -367,9 +375,12 @@ int main(void)
 	Scene::shaders.push_back(&lightShader);
 
 	// shadow shader 
-	Shader shadowShader("../../resources/shaders/shadows.glsl");
+	Shader shadowShader("../../resources/shaders/shadows.glsl", uboBlock, "uBlock");
 	Scene::shaders.push_back(&shadowShader);
 
+	// normalmap shader 
+	Shader normalShader("../../resources/shaders/normalMap.glsl", uboBlock, "uBlock");
+	Scene::shaders.push_back(&normalShader);
 
 
 
@@ -383,8 +394,8 @@ int main(void)
 	Scene::cubeMapDir + "front" + "." + Scene::cubeMapFormat,
 	Scene::cubeMapDir + "back" + "." + Scene::cubeMapFormat
 	};
-	Skybox skyMap(cubemap);
-	Shader skyShader("../../resources/shaders/cubemap.glsl");
+	Skybox skyTexture(cubemap);
+	Shader skyShader("../../resources/shaders/cubemap.glsl", uboBlock, "uBlock");
 	Scene::shaders.push_back(&skyShader);
 	SimpleCube skyCube(1.0, false);
 
@@ -400,9 +411,15 @@ int main(void)
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	ImGui::StyleColorsDark();
+
+	// ------------------------------ FBO -----------------------------//
+	DepthFBO depthTexture(Lights::SHADOW_WIDTH, Lights::SHADOW_HEIGHT);
+
+
 	// Setup Platform/Renderer bindings
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init(glsl_version);
+
 
 	// GL CONFIG
 	glEnable(GL_DEPTH_TEST);
@@ -410,106 +427,142 @@ int main(void)
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-
-	// Frame buffer
-	unsigned int fbo;
-	glGenFramebuffers(1, &fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-	// Attach Texture
-	unsigned int depthMap;
-	glGenTextures(1, &depthMap);
-	glBindTexture(GL_TEXTURE_2D, depthMap);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, Lights::SHADOW_WIDTH, Lights::SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
-
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE)
-	{
-		LOG_DEBUG("Frame buffer Fbo complete!");
-	}
-	else
-	{
-		LOG_ERROR("No Frame buffer!");
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	// ~Frame buffer
-
-	skyMap.BindTexture(0);
-	checkerMap.BindTexture(1);
+	skyTexture.BindTexture(Shading::skyTextureSlot);
+	//checkerMap.BindTexture(2);
 	loadFBX("../../resources/fbx/box_scene2.fbx");
 
-	scene = new SceneContext((int)WIDTH, (int)HEIGHT);  // Planning to use this class to handle all the global variables.
+	//scene = new SceneContext((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);  // Planning to use this class to handle all the global variables.
 	/* Loop until the user closes the window */
 	float a = 0.0f;
+
+
+	TransformNode myXform = TransformNode(&Scene::proj, &Scene::view);
+
+
 
 
 	while (!glfwWindowShouldClose(window))
 	{
 
 		ProcessTransforms(a);
-		DoMovement();
+		DoCameraMovement();
 		glEnable(GL_DEPTH_TEST);
 		glPolygonMode(GL_FRONT, GL_FILL);
 
 		float near_plane = 1.0f, far_plane = 7.5f;
 		glm::mat4 lightProjection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, Lights::near_dist, Lights::far_dist);
 		glm::mat4 lightView = glm::lookAt(Lights::lightTranslate, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::mat4 lightSpaceMatrix = lightProjection * lightView * Scene::model * Scene::scaleMatrix;
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
 		if (Shading::drawShadows)
 		{
-			glEnable(GL_CULL_FACE);
-			glCullFace(GL_FRONT);
+			glDisable(GL_CULL_FACE);
+			glCullFace(GL_BACK);
 			glViewport(0, 0, Lights::SHADOW_WIDTH, Lights::SHADOW_HEIGHT);
-			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-			glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+			depthTexture.bindFBO();
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 			glClear(GL_DEPTH_BUFFER_BIT);
 			simpleDepthShader.Bind();
-			simpleDepthShader.SetUniformMat4f("u_LightSpaceMatrix", lightSpaceMatrix * Scene::rotMat);
-			simpleDepthShader.SetUniformMat4f("u_Model", Scene::model);
+			simpleDepthShader.SetUniformMat4f("u_LightSpaceMatrix", lightSpaceMatrix);
+			simpleDepthShader.SetUniformMat4f("u_Model", Scene::model * Scene::rotMat);
 			assimpModel.Draw();
 			simpleDepthShader.UnBind();
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			depthTexture.unbind();
 
-			glViewport(0, 0, WIDTH, HEIGHT);
+
+			glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 			glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		}
-		glViewport(0, 0, WIDTH, HEIGHT);
-		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+		glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 
 
-		// RENDER SHADOW SHADER
-		shadowShader.Bind();
-		glActiveTexture(GL_TEXTURE0 + 2);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
+		skyTexture.BindTexture(Shading::skyTextureSlot);
+		depthTexture.BindTexture(Shading::depthTextureSlot);
+		diffuseMap.BindTexture(Shading::diffuseTextureSlot);
+		normalMap.BindTexture(Shading::normalTextureSlot);
 
 
-		shadowShader.SetUniform1i("u_ShadowMap", 2);
-		shadowShader.SetUniform1i("u_Texture", 1);
-		shadowShader.SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
-		shadowShader.SetUniformMat4f("u_Projection", Scene::proj);
-		shadowShader.SetUniformMat4f("u_View", Scene::view);
-		shadowShader.SetUniformMat4f("u_Model", Scene::model * Scene::rotMat);
-		shadowShader.SetUniform3f("viewPos", Scene::camera.Position());
-		shadowShader.SetUniform3f("lightPos", Lights::lightTranslate);
 
+		// NORMAL SHADOW SHADER
+		normalShader.Bind();
+		normalShader.SetUniformMat4f("model", Scene::model * Scene::rotMat);
+		normalShader.SetUniformMat4f("view", Scene::view);
+		normalShader.SetUniformMat4f("projection", Scene::proj);
+		normalShader.SetUniform3f("lightPos", Lights::lightTranslate);
+		normalShader.SetUniform3f("viewPos", Scene::camera.Position());
+
+		normalShader.SetUniform1i("diffuseMap", Shading::diffuseTextureSlot);
+		normalShader.SetUniform1i("normalMap", Shading::normalTextureSlot);
+		normalShader.SetUniform1i("uDrawMode", Shading::mode);
+		normalShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
+		normalShader.SetUniform1i("uDrawTexture", Shading::drawTextures);
+		renderQuad();
 		assimpModel.Draw();
+		normalShader.UnBind();
+
+		// ~ NORMAL SHADOW SHADER
 
 
-		//RenderGeo(meshShader);
+
+		//// RENDER SHADOW SHADER
+		//shadowShader.Bind();
+
+		//shadowShader.SetUniform1i("uNormalMap", Shading::normalTextureSlot);
+		//shadowShader.SetUniform1i("uDiffuseMap", Shading::diffuseTextureSlot);
+		//shadowShader.SetUniform1i("uShadowMap", Shading::depthTextureSlot);
+		//shadowShader.SetUniform1i("uSky", Shading::skyTextureSlot);
+
+
+		//shadowShader.SetUniform1f("uShadowBias", Lights::shadowBias);
+		//shadowShader.SetUniform1i("uDrawMode", Shading::mode);
+		//shadowShader.SetUniform1i("uWireframe", 0);
+
+		//shadowShader.SetUniform1f("uSpecular", Shading::specIntensity);
+		//shadowShader.SetUniform1f("uGlossiness", Shading::specFalloff);
+
+		//shadowShader.SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
+		//shadowShader.SetUniformMat4f("uModel", Scene::model * Scene::rotMat);
+		//shadowShader.SetUniform3f("uColor", Shading::diffuseColor);
+		//shadowShader.SetUniform3f("uViewPos", Scene::camera.Position());
+		//shadowShader.SetUniform3f("lightPos", Lights::lightTranslate);
+		//// Bool
+		//shadowShader.SetUniform1i("uDrawTexture", Shading::drawTextures);
+		//shadowShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
+		//shadowShader.SetUniform1i("uDrawReflection", Shading::drawReflections);
+		//shadowShader.SetUniform1i("uDrawShadow", Shading::drawShadows);
+		//assimpModel.Draw();
+
+
+		//if (Shading::wireFrameOnShaded)
+		//{
+		//	glPolygonMode(GL_FRONT, GL_LINE);
+		//	shadowShader.SetUniform1i("uWireframe", Shading::wireFrameOnShaded);
+		//	glLineWidth(1.0);
+		//	glCullFace(GL_BACK);
+		//	assimpModel.Draw();
+		//}
+
+
+		//shadowShader.UnBind();
+
+		//// ~RENDER SHADOW SHADER
+
+		depthTexture.UnbindTexture();
+
+
+		//basicShader.Bind();
+		//basicShader.SetUniform1i("uBlock", uboMatrices);
+		//basicShader.SetUniformMat4f("uModel", Scene::model * Scene::rotMat);
+		//assimpModel.Draw();
+		//basicShader.UnBind();
+
+
 
 
 		// Second pass
@@ -518,10 +571,9 @@ int main(void)
 			glCullFace(GL_FRONT);
 			glDepthMask(GL_FALSE);
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			skyTexture.BindTexture(Shading::skyTextureSlot);
 			skyShader.Bind();
-			Scene::viewRot = glm::mat3(Scene::view);
-			skyShader.SetUniformMat4f("u_MVP", Scene::proj * Scene::viewRot);
-			skyShader.SetUniform1i("u_Sky", 0);
+			skyShader.SetUniform1i("uSky", Shading::skyTextureSlot);
 			skyCube.draw();
 			skyShader.UnBind();
 			glCullFace(GL_BACK);
@@ -530,14 +582,34 @@ int main(void)
 
 		if (Lights::showLights)
 		{
-			glm::mat4 lightModel = glm::translate(glm::mat4(1.0f), Lights::lightTranslate);
+
+			glm::vec4 lightPos = Scene::proj * Scene::view * glm::vec4(Lights::lightTranslate.x, Lights::lightTranslate.y, Lights::lightTranslate.z, 1.0);
+			glm::vec4 mapCenter = Scene::mvp * glm::vec4(0.0, 0.0, 0.0, 1.0);
+			glColor3f(1.0, 0.0, 0.0);
+			glLineWidth(2.0);
+			glDisable(GL_CULL_FACE);
+			glDisable(GL_DEPTH_TEST);
+
+			// Draw light angle line
+			glBegin(GL_LINES);
+			glVertex4f(mapCenter.x, mapCenter.y, mapCenter.z, mapCenter.w);
+			glVertex4f(lightPos.x, lightPos.y, lightPos.z, lightPos.w);
+			glEnd();
+
+
 			lightShader.Bind();
-			lightShader.SetUniform3f("u_LightPosA", Lights::lightTranslate);
+			glm::mat4 lightModel = glm::translate(glm::mat4(1.0f), Lights::lightTranslate);
+
 			lightShader.SetUniform3f("u_LightColorA", Lights::lightColorA);
-			lightShader.SetUniformMat4f("u_MVP", Scene::proj * Scene::view * lightModel * Lights::lightScale);
+			lightShader.SetUniformMat4f("uModel", lightModel * Lights::lightScale);
 			glCullFace(GL_FRONT);
 			glDepthMask(GL_TRUE);
 			lightCube.draw();
+			lightShader.UnBind();
+
+			//myXform.setPosition(Lights::lightTranslate);
+			myXform.setModel(lightModel);
+			myXform.draw();
 		}
 
 
@@ -546,17 +618,15 @@ int main(void)
 			postShader.Bind();
 			glDisable(GL_DEPTH_TEST);
 			glCullFace(GL_BACK);
-			glActiveTexture(GL_TEXTURE0 + 2);
-			glBindTexture(GL_TEXTURE_2D, depthMap);
+			depthTexture.BindTexture(2);
 			postShader.SetUniform1f("u_Near", Lights::near_dist);
 			postShader.SetUniform1f("u_Far", Lights::far_dist);
-
 			postShader.SetUniform1i("u_Texture", 2);
-			postShader.SetUniformMat4f("u_MVP", Scene::model);
+			//postShader.SetUniformMat4f("u_MVP", Scene::model);
 			renderPlane.Draw();
 			postShader.UnBind();
 		}
-		
+
 
 		ProcessUI();
 		glfwSwapBuffers(window);
@@ -568,11 +638,11 @@ int main(void)
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
-	delete scene;
+	//delete scene;
 	return 0;
 }
 
-void DoMovement()
+void DoCameraMovement()
 {
 	if (keys[GLFW_KEY_W] || keys[GLFW_KEY_UP])
 	{

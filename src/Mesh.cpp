@@ -1,23 +1,20 @@
 #include "Mesh.h"
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<TextureID> textures, std::string meshName) 
-	:mVertices(vertices), mIndices(indices), mTextures(textures), mName(meshName)
+	:mVertices(vertices), mIndices(indices), mTextures(textures), MeshNode(meshName)
 {
+	LOG_DEBUG("Mesh Child node {}", mName.c_str());
 	setupMesh();
 }
 
 Mesh::~Mesh()
 {
-	//Cleanup
-	//glBindVertexArray(0);
-	//glDeleteBuffers(1, &VBO);
-	//glDeleteBuffers(1, &EBO);
-	////glDeleteVertexArrays(1, &VAO); //Deleting this will prevent the successfull generation of a new VAO 
-	//mVertices.clear();
-	//mIndices.clear();
-	//mTextures.clear();
+	// Cleanup Cache
+	glDeleteBuffers(1, &mVBO);
+	glDeleteBuffers(1, &mEBO);
+	glDeleteVertexArrays(1, &mVAO);
+	printf("\n Destroying %s \n", mName.c_str());
 
-	//VAO = 0;
 }
 
 void Mesh::setupMesh()
@@ -27,23 +24,23 @@ void Mesh::setupMesh()
 		LOG_ERROR("Mesh is not loaded!");
 		return;
 	}
-	GLCall(glGenVertexArrays(1, &VAO));  // Vertex Array	
-	GLCall(glGenBuffers(1, &VBO));       // Vertex Buffer
-	GLCall(glGenBuffers(1, &EBO));       // Index Buffer
+	GLCall(glGenVertexArrays(1, &mVAO));  // Vertex Array	
+	GLCall(glGenBuffers(1, &mVBO));       // Vertex Buffer
+	GLCall(glGenBuffers(1, &mEBO));       // Index Buffer
 
 
-	GLCall(glBindVertexArray(VAO));
+	GLCall(glBindVertexArray(mVAO));
 	// Vertex Buffer
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, mVBO);
 	glBufferData(GL_ARRAY_BUFFER, mVertices.size() * sizeof(Vertex), &mVertices[0], GL_STATIC_DRAW);
 
 	// Index Buffer
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mEBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIndices.size() * sizeof(unsigned int), &mIndices[0], GL_STATIC_DRAW);
 
 	// Vertex Positions 
 	GLCall(glEnableVertexAttribArray(0));
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Position));
 	
 	// Normals
 	GLCall(glEnableVertexAttribArray(1));
@@ -57,6 +54,15 @@ void Mesh::setupMesh()
 	GLCall(glEnableVertexAttribArray(3));
 	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, BaryCentricCoords));
 
+	// Tangents
+	GLCall(glEnableVertexAttribArray(4));
+	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangents));
+
+	// Bitangents
+	GLCall(glEnableVertexAttribArray(5));
+	glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, BiTangents));
+
+
 	// Unbind cleanup
 	glBindVertexArray(0);
 
@@ -64,39 +70,34 @@ void Mesh::setupMesh()
 
 void Mesh::draw()
 {
-	if (!VAO)
+	if (!mVAO)
 	{
 		return;
 	}
-	glBindVertexArray(VAO);
+	GLCall(glBindVertexArray(mVAO););
 
 	//LOG_DEBUG(mName.c_str());
-
-	if (mName == "Plane")
-	{
-		GLint params;
-		glGetIntegerv(GL_CULL_FACE_MODE, &params);
-
-		glCullFace(GL_BACK);
-		glDrawElements(GL_TRIANGLES, mVertices.size(), GL_UNSIGNED_INT, nullptr);
-		glCullFace(params);
-	}
-	else
-	{
-		glDrawElements(GL_TRIANGLES, mVertices.size(), GL_UNSIGNED_INT, nullptr);
-	}
+	glDrawElements(GL_TRIANGLES, mIndices.size(), GL_UNSIGNED_INT, nullptr);
 
 
 	glBindVertexArray(0);
 }
 
+void Mesh::draw(GLenum pMode)
+{
+
+	if (!mVAO)
+	{
+		return;
+	}
+	GLCall(glBindVertexArray(mVAO););
+	glDrawElements(pMode, mIndices.size(), GL_UNSIGNED_INT, nullptr);
+}
+
 SimpleCube::SimpleCube(float pSize, bool pReverseNormals/*=false*/)
 	:mScale(pSize)
-
 {
 	setupMesh();
-
-
 }
 
 
@@ -299,7 +300,105 @@ void SimplePlane::setupMesh()
 	// Unbind cleanup
 	glBindVertexArray(0);
 
+}
+
+
+
+
+TransformNode::TransformNode(const glm::mat4* pProg, const glm::mat4* pView)
+	: mProj(pProg), mView(pView)
+{
+	setUpManip();
+	mDrawManip = true;
+}
+
+void TransformNode::setModel(glm::mat4 pModel)
+{
+	mModel = pModel;
+}
+
+void TransformNode::setPosition(glm::vec3 pPosition)
+{
+	mModel = glm::translate(glm::mat4(1.0), pPosition);
+}
+
+void TransformNode::draw()
+{
+	if (mView == nullptr)
+	{
+		LOG_ERROR("mView is Null");
+		return;
+	}
+
+	if (mProj == nullptr)
+	{
+		LOG_ERROR("mProj is Null");
+		return;
+	}
+
+	if (mDrawManip)
+	{
+		drawManip();
+	}
 
 
 }
 
+void TransformNode::setUpManip()
+{
+	mManipSize = 1.0f;
+	mCenter = glm::vec4(0.0, 0.0, 0.0, 1.0);
+	mX = glm::vec4(1.0, 0.0, 0.0, 1.0);
+	mY = glm::vec4(0.0, 1.0, 0.0, 1.0);
+	mZ = glm::vec4(0.0, 0.0, 1.0, 1.0);
+
+	mModel = glm::mat4(1.0); // Identity Matrix
+}
+
+void TransformNode::drawManip()
+{
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
+	glm::mat4 proj = *mProj;
+	glm::mat4 view = *mView;
+
+	glm::mat4 scale = glm::scale(mModel, glm::vec3(mManipSize));
+	
+	glm::mat4 mvp = proj * view * mModel;
+	glm::vec4 center(mvp * mCenter);
+	glm::vec4 x(mvp * mX);
+	glm::vec4 y(mvp * mY); 
+	glm::vec4 z(mvp * mZ);
+	
+	
+	// X Handle
+	glBegin(GL_LINES);
+	glColor3f(1.0, 0.0, 0.0);
+	glVertex4f(center.x, center.y, center.z, center.w);
+	glVertex4f(x.x, x.y, x.z, x.w);
+	glEnd();
+	
+	// Y Handle
+	glBegin(GL_LINES);
+	glColor3f(0.0, 1.0, 0.0);
+	glVertex4f(center.x, center.y, center.z, center.w);
+	glVertex4f(y.x, y.y, y.z, y.w);
+	glEnd();
+
+	// Z Handle
+	glBegin(GL_LINES);
+	glColor3f(0.0, 0.0, 1.0);
+	glVertex4f(center.x, center.y, center.z, center.w);
+	glVertex4f(z.x, z.y, z.z, z.w);
+	glEnd();
+
+
+
+}
+
+MeshNode::MeshNode(std::string pName)
+	: mName(pName)
+{
+
+
+}

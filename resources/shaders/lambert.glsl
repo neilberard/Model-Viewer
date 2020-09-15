@@ -106,7 +106,7 @@ void main()
 			vec3 reflectDir = normalize(reflect(-lightAngle, norm));
 			float dirDot = max(dot(-veiwDir, reflectDir), 0.0);
 			float spec = pow(dirDot, max(u_SpecFalloff, 1.0));
-			vec3 specular = u_SpecIntensity * spec * u_LightColorA;
+			vec3 specular = u_SpecIntensity *    * u_LightColorA;
 			 
 			 // Reflection
 			vec3 I = normalize(v_Position - u_CameraPos);
