@@ -145,6 +145,7 @@ public:
 
 
 Model assimpModel;
+RenderContext* renderer;
 
 // Returns an empty string if dialog is canceled
 const char* pfilter = "All Files (*.*)\0*.*\0";
@@ -226,7 +227,14 @@ void ProcessUI()
 			loadFBX();
 		}
 		if (ImGui::Button("Hot reload shaders", ImVec2(200, 30))) { ReloadShaders(); }
+		
+		
+		// TODO: Swap out Shading with renderer.
+		//ImGui::Checkbox("Wireframe on shaded", &renderer->wireFrameOnShaded);
+		
+		
 		ImGui::Checkbox("Wireframe on shaded", &Shading::wireFrameOnShaded);
+
 		ImGui::Checkbox("Show Lights", &Lights::showLights);
 		ImGui::Checkbox("Draw Reflections", &Shading::drawReflections);
 		ImGui::Checkbox("Draw Normals", &Shading::drawNormals);
@@ -290,6 +298,10 @@ int main(void)
 	//Log::set_level();
 	LOG_INFO("Initialized Log!");
 	GLFWwindow* window;
+
+
+	SceneContext* sceneContext = new SceneContext;
+	renderer = new RenderContext(*sceneContext);
 
 	/* Initialize the library */
 	if (!glfwInit())
@@ -446,6 +458,10 @@ int main(void)
 
 		ProcessTransforms(a);
 		DoCameraMovement();
+
+		renderer->onDisplay();
+
+
 		glEnable(GL_DEPTH_TEST);
 		glPolygonMode(GL_FRONT, GL_FILL);
 
@@ -510,59 +526,50 @@ int main(void)
 
 
 
-		//// RENDER SHADOW SHADER
-		//shadowShader.Bind();
+		// RENDER SHADOW SHADER
+		shadowShader.Bind();
 
-		//shadowShader.SetUniform1i("uNormalMap", Shading::normalTextureSlot);
-		//shadowShader.SetUniform1i("uDiffuseMap", Shading::diffuseTextureSlot);
-		//shadowShader.SetUniform1i("uShadowMap", Shading::depthTextureSlot);
-		//shadowShader.SetUniform1i("uSky", Shading::skyTextureSlot);
-
-
-		//shadowShader.SetUniform1f("uShadowBias", Lights::shadowBias);
-		//shadowShader.SetUniform1i("uDrawMode", Shading::mode);
-		//shadowShader.SetUniform1i("uWireframe", 0);
-
-		//shadowShader.SetUniform1f("uSpecular", Shading::specIntensity);
-		//shadowShader.SetUniform1f("uGlossiness", Shading::specFalloff);
-
-		//shadowShader.SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
-		//shadowShader.SetUniformMat4f("uModel", Scene::model * Scene::rotMat);
-		//shadowShader.SetUniform3f("uColor", Shading::diffuseColor);
-		//shadowShader.SetUniform3f("uViewPos", Scene::camera.Position());
-		//shadowShader.SetUniform3f("lightPos", Lights::lightTranslate);
-		//// Bool
-		//shadowShader.SetUniform1i("uDrawTexture", Shading::drawTextures);
-		//shadowShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
-		//shadowShader.SetUniform1i("uDrawReflection", Shading::drawReflections);
-		//shadowShader.SetUniform1i("uDrawShadow", Shading::drawShadows);
-		//assimpModel.Draw();
+		shadowShader.SetUniform1i("uNormalMap", Shading::normalTextureSlot);
+		shadowShader.SetUniform1i("uDiffuseMap", Shading::diffuseTextureSlot);
+		shadowShader.SetUniform1i("uShadowMap", Shading::depthTextureSlot);
+		shadowShader.SetUniform1i("uSky", Shading::skyTextureSlot);
 
 
-		//if (Shading::wireFrameOnShaded)
-		//{
-		//	glPolygonMode(GL_FRONT, GL_LINE);
-		//	shadowShader.SetUniform1i("uWireframe", Shading::wireFrameOnShaded);
-		//	glLineWidth(1.0);
-		//	glCullFace(GL_BACK);
-		//	assimpModel.Draw();
-		//}
+		shadowShader.SetUniform1f("uShadowBias", Lights::shadowBias);
+		shadowShader.SetUniform1i("uDrawMode", Shading::mode);
+		shadowShader.SetUniform1i("uWireframe", 0);
+
+		shadowShader.SetUniform1f("uSpecular", Shading::specIntensity);
+		shadowShader.SetUniform1f("uGlossiness", Shading::specFalloff);
+
+		shadowShader.SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
+		shadowShader.SetUniformMat4f("uModel", Scene::model * Scene::rotMat);
+		shadowShader.SetUniform3f("uColor", Shading::diffuseColor);
+		shadowShader.SetUniform3f("uViewPos", Scene::camera.Position());
+		shadowShader.SetUniform3f("lightPos", Lights::lightTranslate);
+		// Bool
+		shadowShader.SetUniform1i("uDrawTexture", Shading::drawTextures);
+		shadowShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
+		shadowShader.SetUniform1i("uDrawReflection", Shading::drawReflections);
+		shadowShader.SetUniform1i("uDrawShadow", Shading::drawShadows);
+		assimpModel.Draw();
 
 
-		//shadowShader.UnBind();
+		if (Shading::wireFrameOnShaded)
+		{
+			glPolygonMode(GL_FRONT, GL_LINE);
+			shadowShader.SetUniform1i("uWireframe", Shading::wireFrameOnShaded);
+			glLineWidth(1.0);
+			glCullFace(GL_BACK);
+			assimpModel.Draw();
+		}
+
+
+		shadowShader.UnBind();
 
 		//// ~RENDER SHADOW SHADER
 
 		depthTexture.UnbindTexture();
-
-
-		//basicShader.Bind();
-		//basicShader.SetUniform1i("uBlock", uboMatrices);
-		//basicShader.SetUniformMat4f("uModel", Scene::model * Scene::rotMat);
-		//assimpModel.Draw();
-		//basicShader.UnBind();
-
-
 
 
 		// Second pass
@@ -638,7 +645,9 @@ int main(void)
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
-	//delete scene;
+	delete renderer;
+	delete sceneContext;
+
 	return 0;
 }
 

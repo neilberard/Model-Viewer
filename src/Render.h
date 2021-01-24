@@ -1,6 +1,51 @@
 #pragma once 
 #include "GL/glew.h"
 #include "Log.h"
+#include "Scene.h"
+
+
+
+
+class RenderContext
+{
+public:
+
+	RenderContext(const SceneContext& pScene);
+	~RenderContext();
+
+
+	void init(GLuint pScreenWidth, GLuint pScreenHeight);
+	void onDisplay();
+
+	void setWindowSize(GLuint pScreenWidth, GLuint pScreenHeight);
+
+
+	GLFWwindow* window();
+
+
+	// Render Options
+	bool wireFrameOnShaded = false;
+	bool drawReflections = true;
+	bool drawShadows = true;
+	bool drawTextures = false;
+	bool drawNormals = true;
+	bool drawSky = true;
+	bool drawDebug = false;
+
+	// UI Options
+	bool processMouse = true;
+
+private:
+	const SceneContext& mScene;
+	bool mInitialized = false;
+
+	// Window
+	GLFWwindow *mWindow;
+	GLuint mScreenWidth;
+	GLuint mScreenHeight;
+
+};
+
 
 
 

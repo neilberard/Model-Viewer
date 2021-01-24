@@ -101,3 +101,24 @@ void ColorFBO::unbind()
 {
 
 }
+
+RenderContext::RenderContext(const SceneContext& pScene): mScene(pScene)
+{
+
+}
+
+RenderContext::~RenderContext()
+{
+	LOG_INFO("Deleting RenderContext. Goodbye!");
+
+}
+
+void RenderContext::onDisplay()
+{
+	if (wireFrameOnShaded)
+	{
+		LOG_INFO("Wireframe ", wireFrameOnShaded);
+	}
+
+
+}
