@@ -1,6 +1,53 @@
 #include "Render.h"
 
 
+RenderContext::RenderContext(const SceneContext* pScene, const GLFWwindow* pWindow, const Model* pModel) : 
+	mScene(pScene), mWindow(pWindow), mModel(pModel)
+{
+
+	// Setup Shaders
+	mDepthShader = std::make_unique<Shader>("../../resources/shaders/simpleDepthShader.glsl");
+}
+
+RenderContext::~RenderContext()
+{
+	LOG_INFO("Deleting RenderContext. Goodbye!");
+
+}
+
+void RenderContext::onDisplay()
+{
+
+	if (mModel == nullptr || !mModel->mLoaded)
+	{
+		return;
+	}
+
+
+	for (unsigned int i = 0; i < mModel->mMeshes.size(); i++)
+	{
+		mModel->mMeshes[i]->draw();
+	}
+
+
+	if (mWireFrameOnShaded)
+	{
+		LOG_INFO("Wireframe ", mWireFrameOnShaded);
+	}
+
+
+	// Depth FBO
+
+
+
+
+
+
+
+
+}
+
+
 DepthFBO::DepthFBO(int pWidth, int pHeight)
 {
 	initialize(pWidth, pHeight);
@@ -99,26 +146,5 @@ void ColorFBO::initialize(int pWidth, int pHeight)
 
 void ColorFBO::unbind()
 {
-
-}
-
-RenderContext::RenderContext(const SceneContext& pScene): mScene(pScene)
-{
-
-}
-
-RenderContext::~RenderContext()
-{
-	LOG_INFO("Deleting RenderContext. Goodbye!");
-
-}
-
-void RenderContext::onDisplay()
-{
-	if (wireFrameOnShaded)
-	{
-		LOG_INFO("Wireframe ", wireFrameOnShaded);
-	}
-
 
 }

@@ -144,7 +144,7 @@ public:
 
 
 
-Model assimpModel;
+Model* assimpModel;
 RenderContext* renderer;
 
 // Returns an empty string if dialog is canceled
@@ -182,7 +182,7 @@ void loadFBX(std::string fileNameStr = "")
 		fileNameStr = openfilename(pfilter).c_str();
 		LOG_DEBUG("DONE LOADING ASSIMP");
 	}
-	assimpModel.LoadModel(fileNameStr.c_str());
+	assimpModel->LoadModel(fileNameStr.c_str());
 }
 
 void WindowSizeCallback(GLFWwindow *window, int width, int height)
@@ -297,11 +297,7 @@ int main(void)
 
 	//Log::set_level();
 	LOG_INFO("Initialized Log!");
-	GLFWwindow* window;
 
-
-	SceneContext* sceneContext = new SceneContext;
-	renderer = new RenderContext(*sceneContext);
 
 	/* Initialize the library */
 	if (!glfwInit())
@@ -311,15 +307,13 @@ int main(void)
 	}
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "NB Model Viewer", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "NB Model Viewer", NULL, NULL);
 	if (!window)
 	{
 		LOG_INFO("Closing Window");
 		glfwTerminate();
 		return -1;
 	}
-
-
 
 	/* Make the window's context current */
 	glfwMakeContextCurrent(window);
@@ -340,9 +334,6 @@ int main(void)
 
 	//---------------------Glew Initialized, Yay! -----------------------//
 
-
-
-
 	LOG_DEBUG("Running OPENGL {}", glGetString(GL_VERSION));
 
 	GLCall(glGenBuffers(1, &uboBlock));
@@ -353,6 +344,11 @@ int main(void)
 
 
 	// CREATE UBO BLOCK BEFORE INITIALIZING SHADERS!!
+	assimpModel = new Model();
+	SceneContext* sceneContext = new SceneContext;
+	renderer = new RenderContext(sceneContext, window, assimpModel);
+
+
 
 	// ------------------- Scene Objects And Shaders ---------------------- //
 	// Used for displaying textures such as the depthmap in debug mode, 
@@ -441,6 +437,8 @@ int main(void)
 
 	skyTexture.BindTexture(Shading::skyTextureSlot);
 	//checkerMap.BindTexture(2);
+
+
 	loadFBX("../../resources/fbx/box_scene2.fbx");
 
 	//scene = new SceneContext((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);  // Planning to use this class to handle all the global variables.
@@ -481,7 +479,7 @@ int main(void)
 			simpleDepthShader.Bind();
 			simpleDepthShader.SetUniformMat4f("u_LightSpaceMatrix", lightSpaceMatrix);
 			simpleDepthShader.SetUniformMat4f("u_Model", Scene::model * Scene::rotMat);
-			assimpModel.Draw();
+			renderer->onDisplay();
 			simpleDepthShader.UnBind();
 			depthTexture.unbind();
 
@@ -519,7 +517,8 @@ int main(void)
 		normalShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
 		normalShader.SetUniform1i("uDrawTexture", Shading::drawTextures);
 		renderQuad();
-		assimpModel.Draw();
+		//assimpModel->Draw();
+		renderer->onDisplay();
 		normalShader.UnBind();
 
 		// ~ NORMAL SHADOW SHADER
@@ -552,7 +551,7 @@ int main(void)
 		shadowShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
 		shadowShader.SetUniform1i("uDrawReflection", Shading::drawReflections);
 		shadowShader.SetUniform1i("uDrawShadow", Shading::drawShadows);
-		assimpModel.Draw();
+		assimpModel->Draw();
 
 
 		if (Shading::wireFrameOnShaded)
@@ -561,7 +560,7 @@ int main(void)
 			shadowShader.SetUniform1i("uWireframe", Shading::wireFrameOnShaded);
 			glLineWidth(1.0);
 			glCullFace(GL_BACK);
-			assimpModel.Draw();
+			renderer->onDisplay();
 		}
 
 
@@ -647,6 +646,7 @@ int main(void)
 	ImGui::DestroyContext();
 	delete renderer;
 	delete sceneContext;
+	delete assimpModel;
 
 	return 0;
 }
@@ -684,7 +684,7 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
 	if (key == GLFW_KEY_1 && action == GLFW_PRESS)
 	{
 		std::string fileNameStr = openfilename(pfilter).c_str();
-		assimpModel = Model(fileNameStr.c_str());
+		//assimpModel = Model(fileNameStr.c_str());
 	}
 
 	// PROCESS MOUSE

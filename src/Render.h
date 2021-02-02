@@ -2,31 +2,25 @@
 #include "GL/glew.h"
 #include "Log.h"
 #include "Scene.h"
-
-
+#include "Shader.h"
+#include "Model.h"
+#include <memory>
 
 
 class RenderContext
 {
 public:
-
-	RenderContext(const SceneContext& pScene);
+	// GLFW must be initialized before instantiating this class.
+	RenderContext(const SceneContext* pScene, const GLFWwindow* pWindow, const Model* pModel);
 	~RenderContext();
 
-
-	void init(GLuint pScreenWidth, GLuint pScreenHeight);
 	void onDisplay();
-
-	void setWindowSize(GLuint pScreenWidth, GLuint pScreenHeight);
-
-
-	GLFWwindow* window();
 
 
 	// Render Options
-	bool wireFrameOnShaded = false;
+	bool mWireFrameOnShaded = false;
 	bool drawReflections = true;
-	bool drawShadows = true;
+	bool mDrawShadows = true;
 	bool drawTextures = false;
 	bool drawNormals = true;
 	bool drawSky = true;
@@ -36,13 +30,16 @@ public:
 	bool processMouse = true;
 
 private:
-	const SceneContext& mScene;
+	const SceneContext* mScene;
+	const GLFWwindow* mWindow;
+	const Model* mModel = nullptr;
 	bool mInitialized = false;
 
+	// Stores all meshes
+
+
 	// Window
-	GLFWwindow *mWindow;
-	GLuint mScreenWidth;
-	GLuint mScreenHeight;
+	std::unique_ptr<Shader> mDepthShader;
 
 };
 

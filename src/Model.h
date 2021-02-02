@@ -23,15 +23,16 @@ public:
 	void Draw(GLenum pMode);
 	void LoadModel(std::string path);
 	void UnloadModel();
-
+	bool mLoaded = false;
+	std::vector<Mesh*>mMeshes;
 	~Model();
 
 private:
-	std::vector<Mesh*>mMeshes;
+
 	std::vector<TransformNode>mTransformNodes;
 	std::string directory;
 
-	bool mLoaded = false;
+
 
 	void processNode(aiNode *node, const aiScene *scene);
 

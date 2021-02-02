@@ -30,6 +30,7 @@ Shader::Shader(const std::string& filepath, unsigned int pUniformBlock, const st
 
 Shader::~Shader()
 {
+	printf("\nDeleting Shader %s\n", mFilePath.c_str());
 	GLCall(glDeleteProgram(mRendererID));
 }
 

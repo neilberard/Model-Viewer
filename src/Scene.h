@@ -2,6 +2,7 @@
 #include "Log.h"
 #include <vector>
 #include "Mesh.h"
+#include "Model.h"
 #include "Shader.h"
 #include "glm/glm.hpp"
 #include <gl/glew.h>
