@@ -1,17 +1,34 @@
 #include "Render.h"
 
 
-RenderContext::RenderContext(const SceneContext* pScene, const GLFWwindow* pWindow, const Model* pModel) : 
-	mScene(pScene), mWindow(pWindow), mModel(pModel)
+RenderContext::RenderContext(const SceneContext* pScene, const GLFWwindow* pWindow, const Model* pModel, const unsigned int* pBlock) : 
+	mScene(pScene), mWindow(pWindow), mModel(pModel), mUBO(pBlock)
 {
-
 	// Setup Shaders
-	mDepthShader = std::make_unique<Shader>("../../resources/shaders/simpleDepthShader.glsl");
+
+	mCubemap = std::vector<std::string>{
+		    mCubeMapDir + "right" + "." + mCubeMapFormat,
+			mCubeMapDir + "left" + "." + mCubeMapFormat,
+			mCubeMapDir + "top" + "." + mCubeMapFormat,
+			mCubeMapDir + "bottom" + "." + mCubeMapFormat,
+			mCubeMapDir + "front" + "." + mCubeMapFormat,
+			mCubeMapDir + "back" + "." + mCubeMapFormat
+	};
+
+	mSkyBox = Skybox(mCubemap);
+	mSkyBox.BindTexture(mSkyTextureSlot);
+	mSkyShader.Bind();
+	mSkyShader.SetUniform1i("uBlock", *mUBO);
+	mSkyShader.UnBind();
+
+
+
 }
 
 RenderContext::~RenderContext()
 {
 	LOG_INFO("Deleting RenderContext. Goodbye!");
+
 
 }
 
@@ -23,11 +40,24 @@ void RenderContext::onDisplay()
 		return;
 	}
 
+	if (mDrawShadows)
+	{
+		//pass
+
+
+
+	}
+
+
+
 
 	for (unsigned int i = 0; i < mModel->mMeshes.size(); i++)
 	{
 		mModel->mMeshes[i]->draw();
 	}
+
+
+
 
 
 	if (mWireFrameOnShaded)
@@ -37,16 +67,43 @@ void RenderContext::onDisplay()
 
 
 	// Depth FBO
-
-
-
-
-
-
-
-
 }
 
+void RenderContext::renderShadows()
+{
+	glDisable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glViewport(0, 0, mShadowResolution, mShadowResolution);
+
+	mDepthFBO.bind();
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	mDepthShader.Bind();
+	mDepthShader.SetUniformMat4f("u_LightSpaceMatrix", mLightSpace);
+	mDepthShader.SetUniformMat4f("u_Model", mModelSpace);
+
+	for (unsigned int i = 0; i < mModel->mMeshes.size(); i++)
+	{
+		mModel->mMeshes[i]->draw();
+	}
+
+	mDepthShader.UnBind();
+	mDepthFBO.unbind();
+}
+
+void RenderContext::renderSky()
+{
+	glCullFace(GL_FRONT);
+	glDepthMask(GL_FALSE);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	mSkyBox.BindTexture(mSkyTextureSlot);
+	mSkyShader.Bind();
+	mSkyShader.SetUniform1i("uSky", mSkyTextureSlot);
+	mSkyCube.draw();
+	mSkyShader.UnBind();
+	glCullFace(GL_BACK);
+	glDepthMask(GL_TRUE);
+}
 
 DepthFBO::DepthFBO(int pWidth, int pHeight)
 {

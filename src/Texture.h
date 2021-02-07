@@ -24,6 +24,7 @@ public:
 class Skybox : public BaseTexture
 {
 public:
+	Skybox();
 	Skybox(std::vector<std::string> faces);
 	~Skybox();
 

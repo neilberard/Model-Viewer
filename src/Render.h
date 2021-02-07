@@ -4,44 +4,8 @@
 #include "Scene.h"
 #include "Shader.h"
 #include "Model.h"
+#include "Texture.h"
 #include <memory>
-
-
-class RenderContext
-{
-public:
-	// GLFW must be initialized before instantiating this class.
-	RenderContext(const SceneContext* pScene, const GLFWwindow* pWindow, const Model* pModel);
-	~RenderContext();
-
-	void onDisplay();
-
-
-	// Render Options
-	bool mWireFrameOnShaded = false;
-	bool drawReflections = true;
-	bool mDrawShadows = true;
-	bool drawTextures = false;
-	bool drawNormals = true;
-	bool drawSky = true;
-	bool drawDebug = false;
-
-	// UI Options
-	bool processMouse = true;
-
-private:
-	const SceneContext* mScene;
-	const GLFWwindow* mWindow;
-	const Model* mModel = nullptr;
-	bool mInitialized = false;
-
-	// Stores all meshes
-
-
-	// Window
-	std::unique_ptr<Shader> mDepthShader;
-
-};
 
 
 
@@ -49,6 +13,7 @@ private:
 class DepthFBO
 {
 public:
+	DepthFBO() {};
 	DepthFBO(int pWidth, int pHeight);
 	void initialize(int pWidth, int pHeight);
 	void bind();
@@ -91,4 +56,66 @@ private:
 	int mWidth;
 	int mHeight;
 
+};
+
+
+class RenderContext
+{
+public:
+	// GLFW must be initialized before instantiating this class.
+	RenderContext(const SceneContext* pScene, const GLFWwindow* pWindow, const Model* pModel, const unsigned int* pBlock);
+	~RenderContext();
+
+	void onDisplay();
+	void renderShadows();
+	void renderSky();
+
+	unsigned int mShadowResolution = 1024;
+
+	glm::mat4 mLightSpace = glm::mat4();
+	glm::mat4 mModelSpace = glm::mat4();
+
+	// Render Options
+	bool mWireFrameOnShaded = false;
+	bool mDrawReflections = true;
+	bool mDrawShadows = true;
+	bool mDrawTextures = false;
+	bool mDrawNormals = true;
+	bool mDrawSky = true;
+	bool mDrawDebug = false;
+	DepthFBO mDepthFBO = DepthFBO(mShadowResolution, mShadowResolution);
+
+	SimpleCube mSkyCube = SimpleCube(1.0, false);
+
+	const unsigned int* mUBO = 0; //Uniform Buffer Object
+
+
+	// UI Options
+	bool mProcessMouse = true;
+
+private:
+	bool mInitialized = false;
+	const SceneContext* mScene;
+	const GLFWwindow* mWindow;
+	const Model* mModel = nullptr;
+
+
+	std::vector<std::string>mCubemap;
+	std::string mCubeMapFormat = std::string("jpg");
+	std::string mCubeMapDir = std::string("../../extern/resources/textures/skyA/");
+	// Render Process shaders 
+	//--------------------------------------//
+	Shader mDepthShader = Shader("../../resources/shaders/simpleDepthShader.glsl");
+	Shader mPostShader = Shader("../../resources/shaders/post.glsl");
+	Shader mSkyShader =  Shader("../../resources/shaders/cubemap.glsl");
+	Skybox mSkyBox;
+	Shader mShadowShader;
+
+
+	// TEXTURE SLOTS
+	int mSkyTextureSlot = 0;
+	int mShadowTextureSlot = 1;
+	int mDepthTextureSlot = 2;
+	int mNormalTextureSlot = 3;
+	int mDiffuseTextureSlot = 4;
 };

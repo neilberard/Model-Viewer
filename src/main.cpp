@@ -346,7 +346,7 @@ int main(void)
 	// CREATE UBO BLOCK BEFORE INITIALIZING SHADERS!!
 	assimpModel = new Model();
 	SceneContext* sceneContext = new SceneContext;
-	renderer = new RenderContext(sceneContext, window, assimpModel);
+	renderer = new RenderContext(sceneContext, window, assimpModel, &uboBlock);
 
 
 
@@ -421,7 +421,7 @@ int main(void)
 	ImGui::StyleColorsDark();
 
 	// ------------------------------ FBO -----------------------------//
-	DepthFBO depthTexture(Lights::SHADOW_WIDTH, Lights::SHADOW_HEIGHT);
+
 
 
 	// Setup Platform/Renderer bindings
@@ -459,7 +459,6 @@ int main(void)
 
 		renderer->onDisplay();
 
-
 		glEnable(GL_DEPTH_TEST);
 		glPolygonMode(GL_FRONT, GL_FILL);
 
@@ -470,19 +469,9 @@ int main(void)
 
 		if (Shading::drawShadows)
 		{
-			glDisable(GL_CULL_FACE);
-			glCullFace(GL_BACK);
-			glViewport(0, 0, Lights::SHADOW_WIDTH, Lights::SHADOW_HEIGHT);
-			depthTexture.bindFBO();
-			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-			glClear(GL_DEPTH_BUFFER_BIT);
-			simpleDepthShader.Bind();
-			simpleDepthShader.SetUniformMat4f("u_LightSpaceMatrix", lightSpaceMatrix);
-			simpleDepthShader.SetUniformMat4f("u_Model", Scene::model * Scene::rotMat);
-			renderer->onDisplay();
-			simpleDepthShader.UnBind();
-			depthTexture.unbind();
-
+			renderer->mLightSpace = lightSpaceMatrix;
+			renderer->mModelSpace = Scene::model * Scene::rotMat;
+			renderer->renderShadows();
 
 			glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 			glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
@@ -495,33 +484,9 @@ int main(void)
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 
-
-		skyTexture.BindTexture(Shading::skyTextureSlot);
-		depthTexture.BindTexture(Shading::depthTextureSlot);
+		renderer->mDepthFBO.BindTexture(Shading::depthTextureSlot);
 		diffuseMap.BindTexture(Shading::diffuseTextureSlot);
 		normalMap.BindTexture(Shading::normalTextureSlot);
-
-
-
-		// NORMAL SHADOW SHADER
-		normalShader.Bind();
-		normalShader.SetUniformMat4f("model", Scene::model * Scene::rotMat);
-		normalShader.SetUniformMat4f("view", Scene::view);
-		normalShader.SetUniformMat4f("projection", Scene::proj);
-		normalShader.SetUniform3f("lightPos", Lights::lightTranslate);
-		normalShader.SetUniform3f("viewPos", Scene::camera.Position());
-
-		normalShader.SetUniform1i("diffuseMap", Shading::diffuseTextureSlot);
-		normalShader.SetUniform1i("normalMap", Shading::normalTextureSlot);
-		normalShader.SetUniform1i("uDrawMode", Shading::mode);
-		normalShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
-		normalShader.SetUniform1i("uDrawTexture", Shading::drawTextures);
-		renderQuad();
-		//assimpModel->Draw();
-		renderer->onDisplay();
-		normalShader.UnBind();
-
-		// ~ NORMAL SHADOW SHADER
 
 
 
@@ -551,7 +516,7 @@ int main(void)
 		shadowShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
 		shadowShader.SetUniform1i("uDrawReflection", Shading::drawReflections);
 		shadowShader.SetUniform1i("uDrawShadow", Shading::drawShadows);
-		assimpModel->Draw();
+		renderer->onDisplay();
 
 
 		if (Shading::wireFrameOnShaded)
@@ -567,23 +532,14 @@ int main(void)
 		shadowShader.UnBind();
 
 		//// ~RENDER SHADOW SHADER
+		renderer->mDepthFBO.UnbindTexture();
 
-		depthTexture.UnbindTexture();
 
 
 		// Second pass
 		if (Shading::drawSky)
 		{
-			glCullFace(GL_FRONT);
-			glDepthMask(GL_FALSE);
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			skyTexture.BindTexture(Shading::skyTextureSlot);
-			skyShader.Bind();
-			skyShader.SetUniform1i("uSky", Shading::skyTextureSlot);
-			skyCube.draw();
-			skyShader.UnBind();
-			glCullFace(GL_BACK);
-			glDepthMask(GL_TRUE);
+			renderer->renderSky();
 		}
 
 		if (Lights::showLights)
@@ -624,13 +580,14 @@ int main(void)
 			postShader.Bind();
 			glDisable(GL_DEPTH_TEST);
 			glCullFace(GL_BACK);
-			depthTexture.BindTexture(2);
+			renderer->mDepthFBO.BindTexture(2);
 			postShader.SetUniform1f("u_Near", Lights::near_dist);
 			postShader.SetUniform1f("u_Far", Lights::far_dist);
 			postShader.SetUniform1i("u_Texture", 2);
 			//postShader.SetUniformMat4f("u_MVP", Scene::model);
 			renderPlane.Draw();
 			postShader.UnBind();
+			renderer->mDepthFBO.UnbindTexture();
 		}
 
 

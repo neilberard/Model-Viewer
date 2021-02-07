@@ -107,6 +107,11 @@ Skybox::Skybox(std::vector<std::string> faces)
 	LoadCubemap();
 }
 
+Skybox::Skybox()
+{
+
+}
+
 Skybox::~Skybox()
 {
 	GLCall(glDeleteTextures(1, &mTextureID));
