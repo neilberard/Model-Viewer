@@ -30,7 +30,8 @@ class MeshNode {
 public:
 	MeshNode(std::string pName);
 	std::string mName;
-
+	int mId;
+	bool mSelected;
 };
 
 

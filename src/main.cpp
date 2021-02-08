@@ -140,6 +140,7 @@ struct UniformBlock
 public:
 	glm::mat4 mProj;
 	glm::mat4 mView;
+	glm::mat4 mModel;
 };
 
 
@@ -280,14 +281,15 @@ void ProcessTransforms(float& a)
 	Scene::view = Scene::camera.GetViewMatrix();
 	a += Scene::spinSpeed;
 	Scene::rotMat = glm::rotate(glm::mat4(1.0f), a, glm::normalize(Scene::rotAxis));
-	Scene::model = glm::translate(glm::mat4(1.0f), Scene::translate);
+	Scene::model = glm::translate(glm::mat4(1.0f), Scene::translate) * Scene::scaleMatrix * Scene::rotMat;
 	Scene::scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(Scene::scale));
-	Scene::mvp = Scene::proj * Scene::view * Scene::model * Scene::scaleMatrix * Scene::rotMat;
+	Scene::mvp = Scene::proj * Scene::view * Scene::model;// *Scene::scaleMatrix * Scene::rotMat;
 
 	// Update View Projection
 	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, uboBlock));
 	GLCall(glBufferSubData(GL_UNIFORM_BUFFER, offsetof(UniformBlock, mProj), sizeof(glm::mat4), glm::value_ptr(Scene::proj)));
 	GLCall(glBufferSubData(GL_UNIFORM_BUFFER, offsetof(UniformBlock, mView), sizeof(glm::mat4), glm::value_ptr(Scene::view)));
+	GLCall(glBufferSubData(GL_UNIFORM_BUFFER, offsetof(UniformBlock, mModel), sizeof(glm::mat4), glm::value_ptr(Scene::model)));
 	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 }
 
@@ -373,39 +375,14 @@ int main(void)
 	Scene::shaders.push_back(&postShader);
 
 	// Shadow Pass
-	Shader simpleDepthShader("../../resources/shaders/simpleDepthShader.glsl");
-	Scene::shaders.push_back(&simpleDepthShader);
+	//Shader simpleDepthShader("../../resources/shaders/simpleDepthShader.glsl");
+	//Scene::shaders.push_back(&simpleDepthShader);
 
 	// light Cube
 	SimpleCube lightCube = SimpleCube(1.0f, false);
 
 	Shader lightShader("../../resources/shaders/light.glsl");
 	Scene::shaders.push_back(&lightShader);
-
-	// shadow shader 
-	Shader shadowShader("../../resources/shaders/shadows.glsl", uboBlock, "uBlock");
-	Scene::shaders.push_back(&shadowShader);
-
-	// normalmap shader 
-	Shader normalShader("../../resources/shaders/normalMap.glsl", uboBlock, "uBlock");
-	Scene::shaders.push_back(&normalShader);
-
-
-
-	// Skybox
-	std::vector<std::string>cubemap
-	{
-	Scene::cubeMapDir + "right" + "." + Scene::cubeMapFormat,
-	Scene::cubeMapDir + "left" + "." + Scene::cubeMapFormat,
-	Scene::cubeMapDir + "top" + "." + Scene::cubeMapFormat,
-	Scene::cubeMapDir + "bottom" + "." + Scene::cubeMapFormat,
-	Scene::cubeMapDir + "front" + "." + Scene::cubeMapFormat,
-	Scene::cubeMapDir + "back" + "." + Scene::cubeMapFormat
-	};
-	Skybox skyTexture(cubemap);
-	Shader skyShader("../../resources/shaders/cubemap.glsl", uboBlock, "uBlock");
-	Scene::shaders.push_back(&skyShader);
-	SimpleCube skyCube(1.0, false);
 
 	// GET EXE DIRECTORY
 	std::string exePath = getexepath();
@@ -435,17 +412,10 @@ int main(void)
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	skyTexture.BindTexture(Shading::skyTextureSlot);
-	//checkerMap.BindTexture(2);
-
-
 	loadFBX("../../resources/fbx/box_scene2.fbx");
 
-	//scene = new SceneContext((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);  // Planning to use this class to handle all the global variables.
-	/* Loop until the user closes the window */
+
 	float a = 0.0f;
-
-
 	TransformNode myXform = TransformNode(&Scene::proj, &Scene::view);
 
 
@@ -470,7 +440,7 @@ int main(void)
 		if (Shading::drawShadows)
 		{
 			renderer->mLightSpace = lightSpaceMatrix;
-			renderer->mModelSpace = Scene::model * Scene::rotMat;
+			renderer->mModelSpace = Scene::model;
 			renderer->renderShadows();
 
 			glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -484,52 +454,46 @@ int main(void)
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 
-		renderer->mDepthFBO.BindTexture(Shading::depthTextureSlot);
-		diffuseMap.BindTexture(Shading::diffuseTextureSlot);
-		normalMap.BindTexture(Shading::normalTextureSlot);
+		// RENDER Diffuse SHADER
+		renderer->mDiffuseShader.Bind();
 
 
+		renderer->mDiffuseShader.SetUniform1f("uShadowBias", Lights::shadowBias);
+		renderer->mDiffuseShader.SetUniform1i("uDrawMode", Shading::mode);
+		renderer->mDiffuseShader.SetUniform1i("uWireframe", 0);
 
-		// RENDER SHADOW SHADER
-		shadowShader.Bind();
+		renderer->mDiffuseShader.SetUniform1f("uSpecular", Shading::specIntensity);
+		renderer->mDiffuseShader.SetUniform1f("uGlossiness", Shading::specFalloff);
 
-		shadowShader.SetUniform1i("uNormalMap", Shading::normalTextureSlot);
-		shadowShader.SetUniform1i("uDiffuseMap", Shading::diffuseTextureSlot);
-		shadowShader.SetUniform1i("uShadowMap", Shading::depthTextureSlot);
-		shadowShader.SetUniform1i("uSky", Shading::skyTextureSlot);
-
-
-		shadowShader.SetUniform1f("uShadowBias", Lights::shadowBias);
-		shadowShader.SetUniform1i("uDrawMode", Shading::mode);
-		shadowShader.SetUniform1i("uWireframe", 0);
-
-		shadowShader.SetUniform1f("uSpecular", Shading::specIntensity);
-		shadowShader.SetUniform1f("uGlossiness", Shading::specFalloff);
-
-		shadowShader.SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
-		shadowShader.SetUniformMat4f("uModel", Scene::model * Scene::rotMat);
-		shadowShader.SetUniform3f("uColor", Shading::diffuseColor);
-		shadowShader.SetUniform3f("uViewPos", Scene::camera.Position());
-		shadowShader.SetUniform3f("lightPos", Lights::lightTranslate);
+		renderer->mDiffuseShader.SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
+		//renderer->mDiffuseShader.SetUniformMat4f("uModel", Scene::model);
+		renderer->mDiffuseShader.SetUniform3f("uColor", Shading::diffuseColor);
+		renderer->mDiffuseShader.SetUniform3f("uViewPos", Scene::camera.Position());
+		renderer->mDiffuseShader.SetUniform3f("lightPos", Lights::lightTranslate);
 		// Bool
-		shadowShader.SetUniform1i("uDrawTexture", Shading::drawTextures);
-		shadowShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
-		shadowShader.SetUniform1i("uDrawReflection", Shading::drawReflections);
-		shadowShader.SetUniform1i("uDrawShadow", Shading::drawShadows);
-		renderer->onDisplay();
+		renderer->mDiffuseShader.SetUniform1i("uDrawTexture", Shading::drawTextures);
+		renderer->mDiffuseShader.SetUniform1i("uDrawNormal", Shading::drawNormals);
+		renderer->mDiffuseShader.SetUniform1i("uDrawReflection", Shading::drawReflections);
+		renderer->mDiffuseShader.SetUniform1i("uDrawShadow", Shading::drawShadows);
+		renderer->renderDiffuse();
+
+		renderer->mDiffuseShader.UnBind();
+
 
 
 		if (Shading::wireFrameOnShaded)
 		{
 			glPolygonMode(GL_FRONT, GL_LINE);
-			shadowShader.SetUniform1i("uWireframe", Shading::wireFrameOnShaded);
+			renderer->renderWireframe();
+			//renderer->mDiffuseShader.SetUniform1i("uWireframe", Shading::wireFrameOnShaded);
 			glLineWidth(1.0);
 			glCullFace(GL_BACK);
-			renderer->onDisplay();
+			//renderer->onDisplay();
+
 		}
 
 
-		shadowShader.UnBind();
+
 
 		//// ~RENDER SHADOW SHADER
 		renderer->mDepthFBO.UnbindTexture();

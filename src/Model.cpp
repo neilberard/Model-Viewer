@@ -68,6 +68,11 @@ void Model::LoadModel(std::string path)
 
 	directory = path.substr(0, path.find_last_of('/'));
 	processNode(scene->mRootNode, scene);
+
+	for (int i = 0; i < mMeshes.size(); i++)
+	{
+		mMeshes[i]->mId = i;
+	}
 	mLoaded = true;
 }
 
@@ -297,8 +302,8 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
 	//}
 
 
-
 	Mesh* pMesh = new Mesh(vertices, indices, textures, mesh->mName.C_Str());
+	
 	mMeshes.push_back(pMesh);
 
 	//return Mesh(vertices, indices, textures, mesh->mName.C_Str());

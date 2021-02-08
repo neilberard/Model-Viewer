@@ -11,10 +11,11 @@ layout (std140) uniform uBlock
 {
     mat4 uProjection;
     mat4 uView;
+	mat4 uModel;
 };
 
 uniform mat4 lightSpaceMatrix;
-uniform mat4 uModel;
+
 
 // BOOL
 uniform int uWireframe;

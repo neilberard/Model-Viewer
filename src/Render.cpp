@@ -1,7 +1,7 @@
 #include "Render.h"
 
 
-RenderContext::RenderContext(const SceneContext* pScene, const GLFWwindow* pWindow, const Model* pModel, const unsigned int* pBlock) : 
+RenderContext::RenderContext(const SceneContext* pScene, GLFWwindow* pWindow, const Model* pModel, const unsigned int* pBlock) : 
 	mScene(pScene), mWindow(pWindow), mModel(pModel), mUBO(pBlock)
 {
 	// Setup Shaders
@@ -17,10 +17,19 @@ RenderContext::RenderContext(const SceneContext* pScene, const GLFWwindow* pWind
 
 	mSkyBox = Skybox(mCubemap);
 	mSkyBox.BindTexture(mSkyTextureSlot);
+
+	// Set UBO
 	mSkyShader.Bind();
 	mSkyShader.SetUniform1i("uBlock", *mUBO);
 	mSkyShader.UnBind();
 
+	mDiffuseShader.Bind();
+	mDiffuseShader.SetUniform1i("uBlock", *mUBO);
+	mDiffuseShader.UnBind();
+
+	mColorShader.Bind();
+	mColorShader.SetUniform1i("uBlock", *mUBO);
+	mColorShader.UnBind();
 
 
 }
@@ -28,8 +37,6 @@ RenderContext::RenderContext(const SceneContext* pScene, const GLFWwindow* pWind
 RenderContext::~RenderContext()
 {
 	LOG_INFO("Deleting RenderContext. Goodbye!");
-
-
 }
 
 void RenderContext::onDisplay()
@@ -40,33 +47,11 @@ void RenderContext::onDisplay()
 		return;
 	}
 
-	if (mDrawShadows)
-	{
-		//pass
-
-
-
-	}
-
-
-
-
 	for (unsigned int i = 0; i < mModel->mMeshes.size(); i++)
 	{
 		mModel->mMeshes[i]->draw();
 	}
 
-
-
-
-
-	if (mWireFrameOnShaded)
-	{
-		LOG_INFO("Wireframe ", mWireFrameOnShaded);
-	}
-
-
-	// Depth FBO
 }
 
 void RenderContext::renderShadows()
@@ -89,6 +74,36 @@ void RenderContext::renderShadows()
 
 	mDepthShader.UnBind();
 	mDepthFBO.unbind();
+}
+
+void RenderContext::renderDiffuse()
+{
+	mDiffuseShader.Bind();
+	mDepthFBO.BindTexture(mDepthTextureSlot);
+	mDiffuseMap.BindTexture(mDiffuseTextureSlot);
+	mNormalMap.BindTexture(mNormalTextureSlot);
+
+	mDiffuseShader.SetUniform1i("uNormalMap", mNormalTextureSlot);
+	mDiffuseShader.SetUniform1i("uDiffuseMap", mDiffuseTextureSlot);
+	mDiffuseShader.SetUniform1i("uShadowMap", mDepthTextureSlot);
+	mDiffuseShader.SetUniform1i("uSky", mSkyTextureSlot);
+	int width, height;
+	glfwGetWindowSize(mWindow, &width, &height);
+	glViewport(0, 0, width, height);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	onDisplay();
+
+}
+
+void RenderContext::renderWireframe()
+{
+	mColorShader.Bind();
+	mColorShader.SetUniform3f("uColor", 1.0f, 0.0f, 0.0f);
+	onDisplay();
+	mColorShader.UnBind();
 }
 
 void RenderContext::renderSky()

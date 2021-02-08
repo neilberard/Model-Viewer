@@ -63,11 +63,13 @@ class RenderContext
 {
 public:
 	// GLFW must be initialized before instantiating this class.
-	RenderContext(const SceneContext* pScene, const GLFWwindow* pWindow, const Model* pModel, const unsigned int* pBlock);
+	RenderContext(const SceneContext* pScene, GLFWwindow* pWindow, const Model* pModel, const unsigned int* pBlock);
 	~RenderContext();
 
 	void onDisplay();
 	void renderShadows();
+	void renderDiffuse();
+	void renderWireframe();
 	void renderSky();
 
 	unsigned int mShadowResolution = 1024;
@@ -83,10 +85,17 @@ public:
 	bool mDrawNormals = true;
 	bool mDrawSky = true;
 	bool mDrawDebug = false;
+
+
+	// Leaving these public until I can decouple set uniforms
+	Shader mDepthShader = Shader("../../resources/shaders/simpleDepthShader.glsl");
+	Shader mPostShader = Shader("../../resources/shaders/post.glsl");
+	Shader mSkyShader = Shader("../../resources/shaders/cubemap.glsl");
+	Shader mDiffuseShader = Shader("../../resources/shaders/shadows.glsl");
+	Shader mColorShader = Shader("../../resources/shaders/color.glsl");
+
 	DepthFBO mDepthFBO = DepthFBO(mShadowResolution, mShadowResolution);
-
 	SimpleCube mSkyCube = SimpleCube(1.0, false);
-
 	const unsigned int* mUBO = 0; //Uniform Buffer Object
 
 
@@ -96,7 +105,7 @@ public:
 private:
 	bool mInitialized = false;
 	const SceneContext* mScene;
-	const GLFWwindow* mWindow;
+	GLFWwindow* mWindow;
 	const Model* mModel = nullptr;
 
 
@@ -105,11 +114,14 @@ private:
 	std::string mCubeMapDir = std::string("../../extern/resources/textures/skyA/");
 	// Render Process shaders 
 	//--------------------------------------//
-	Shader mDepthShader = Shader("../../resources/shaders/simpleDepthShader.glsl");
-	Shader mPostShader = Shader("../../resources/shaders/post.glsl");
-	Shader mSkyShader =  Shader("../../resources/shaders/cubemap.glsl");
+
 	Skybox mSkyBox;
-	Shader mShadowShader;
+	//Shader mShadowShader;
+
+
+	Texture mDiffuseMap = Texture("../../extern/resources/textures/Medieval_1K_diffuse.png");
+	Texture mNormalMap = Texture("../../extern/resources/textures/brickwall_normal.jpg");
+
 
 
 	// TEXTURE SLOTS
