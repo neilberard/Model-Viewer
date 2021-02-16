@@ -5,6 +5,7 @@
 #include "Shader.h"
 #include "Model.h"
 #include "Texture.h"
+#include "Debugging.h"
 #include <memory>
 
 
@@ -18,7 +19,7 @@ public:
 	void initialize(int pWidth, int pHeight);
 	void bind();
 	void bindFBO() { glBindFramebuffer(GL_FRAMEBUFFER, mFBO); };
-	void BindTexture(int activeLevel = 0);
+	void bindTexture(int activeLevel = 0);
 
 	void unbind();
 	void unbindFBO() { glBindFramebuffer(GL_FRAMEBUFFER, 0); };
@@ -38,6 +39,7 @@ private:
 class ColorFBO
 {
 public:
+	ColorFBO() {};
 	ColorFBO(int pWidth, int pHeight);
 	void initialize(int pWidth, int pHeight);
 	void bind();
@@ -51,6 +53,8 @@ public:
 
 private:
 	unsigned int mFBO;
+	unsigned int mRBO;
+	unsigned int mRBODepth;
 	unsigned int mTexture;
 
 	int mWidth;
@@ -66,11 +70,27 @@ public:
 	RenderContext(const SceneContext* pScene, GLFWwindow* pWindow, const Model* pModel, const unsigned int* pBlock);
 	~RenderContext();
 
+	enum RenderDebug
+	{
+		DEBUG_OFF = 0,
+		NORMAL = 1,
+		WIREFRAME = 2,
+	};
+
+	RenderDebug mRenderDebug = DEBUG_OFF;
+	
+	void resize();
+
+
 	void onDisplay();
 	void renderShadows();
 	void renderDiffuse();
 	void renderWireframe();
 	void renderSky();
+	void renderColorIds();
+
+	void selectObject(double xpos, double ypos);
+	int mSelected = -1;
 
 	unsigned int mShadowResolution = 1024;
 
@@ -95,6 +115,7 @@ public:
 	Shader mColorShader = Shader("../../resources/shaders/color.glsl");
 
 	DepthFBO mDepthFBO = DepthFBO(mShadowResolution, mShadowResolution);
+	ColorFBO mColorFBO;
 	SimpleCube mSkyCube = SimpleCube(1.0, false);
 	const unsigned int* mUBO = 0; //Uniform Buffer Object
 
@@ -103,6 +124,9 @@ public:
 	bool mProcessMouse = true;
 
 private:
+	int mWidth;
+	int mHeight;
+
 	bool mInitialized = false;
 	const SceneContext* mScene;
 	GLFWwindow* mWindow;

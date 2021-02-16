@@ -145,8 +145,8 @@ public:
 
 
 
-Model* assimpModel;
-RenderContext* renderer;
+Model* assimpModel = nullptr;
+RenderContext* renderer = nullptr;
 
 // Returns an empty string if dialog is canceled
 const char* pfilter = "All Files (*.*)\0*.*\0";
@@ -194,6 +194,9 @@ void WindowSizeCallback(GLFWwindow *window, int width, int height)
 void KeyCallback(GLFWwindow *window, int key, int scanecode, int action, int mode);
 void ScrollCallback(GLFWwindow *window, double xOffset, double yOffset);
 void MouseCallback(GLFWwindow *window, double xPos, double yPos);
+void MousePressedCallback(GLFWwindow *window, int button, int action, int mods);
+
+
 void DoCameraMovement();
 
 // Mouse movement callback
@@ -227,7 +230,7 @@ void ProcessUI()
 		{
 			loadFBX();
 		}
-		if (ImGui::Button("Hot reload shaders", ImVec2(200, 30))) { ReloadShaders(); }
+		if (ImGui::Button("Reload shaders", ImVec2(200, 30))) { ReloadShaders(); }
 		
 		
 		// TODO: Swap out Shading with renderer.
@@ -326,6 +329,7 @@ int main(void)
 	glfwSetWindowSizeCallback(window, WindowSizeCallback);
 	glfwSetCursorPosCallback(window, MouseCallback);
 	glfwSetScrollCallback(window, ScrollCallback);
+	glfwSetMouseButtonCallback(window, MousePressedCallback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
 	if (glewInit() != GLEW_OK)
@@ -374,10 +378,6 @@ int main(void)
 	Shader postShader("../../resources/shaders/post.glsl");
 	Scene::shaders.push_back(&postShader);
 
-	// Shadow Pass
-	//Shader simpleDepthShader("../../resources/shaders/simpleDepthShader.glsl");
-	//Scene::shaders.push_back(&simpleDepthShader);
-
 	// light Cube
 	SimpleCube lightCube = SimpleCube(1.0f, false);
 
@@ -418,7 +418,7 @@ int main(void)
 	float a = 0.0f;
 	TransformNode myXform = TransformNode(&Scene::proj, &Scene::view);
 
-
+	renderer->mDrawDebug = RenderContext::NORMAL;
 
 
 	while (!glfwWindowShouldClose(window))
@@ -427,7 +427,7 @@ int main(void)
 		ProcessTransforms(a);
 		DoCameraMovement();
 
-		renderer->onDisplay();
+
 
 		glEnable(GL_DEPTH_TEST);
 		glPolygonMode(GL_FRONT, GL_FILL);
@@ -456,8 +456,6 @@ int main(void)
 
 		// RENDER Diffuse SHADER
 		renderer->mDiffuseShader.Bind();
-
-
 		renderer->mDiffuseShader.SetUniform1f("uShadowBias", Lights::shadowBias);
 		renderer->mDiffuseShader.SetUniform1i("uDrawMode", Shading::mode);
 		renderer->mDiffuseShader.SetUniform1i("uWireframe", 0);
@@ -478,21 +476,10 @@ int main(void)
 		renderer->renderDiffuse();
 
 		renderer->mDiffuseShader.UnBind();
+		renderer->renderColorIds();
 
-
-
-		if (Shading::wireFrameOnShaded)
-		{
-			glPolygonMode(GL_FRONT, GL_LINE);
-			renderer->renderWireframe();
-			//renderer->mDiffuseShader.SetUniform1i("uWireframe", Shading::wireFrameOnShaded);
-			glLineWidth(1.0);
-			glCullFace(GL_BACK);
-			//renderer->onDisplay();
-
-		}
-
-
+		renderer->renderWireframe();
+		
 
 
 		//// ~RENDER SHADOW SHADER
@@ -544,7 +531,7 @@ int main(void)
 			postShader.Bind();
 			glDisable(GL_DEPTH_TEST);
 			glCullFace(GL_BACK);
-			renderer->mDepthFBO.BindTexture(2);
+			renderer->mDepthFBO.bindTexture(2);
 			postShader.SetUniform1f("u_Near", Lights::near_dist);
 			postShader.SetUniform1f("u_Far", Lights::far_dist);
 			postShader.SetUniform1i("u_Texture", 2);
@@ -673,3 +660,18 @@ void ScrollCallback(GLFWwindow *window, double xOffset, double pYOffset)
 	GLfloat yOffset = GLfloat(pYOffset);
 	Scene::camera.ProcessMouseScroll(yOffset);
 }
+
+
+void MousePressedCallback(GLFWwindow *window, int button, int action, int mods)
+{
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+	{
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+		if (renderer != nullptr)
+		{
+			renderer->selectObject(xpos, ypos);
+		}
+	}
+}
+

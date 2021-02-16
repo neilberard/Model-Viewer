@@ -10,11 +10,12 @@ layout (std140) uniform uBlock
 };
 
 //uniform mat4 uModel;
+uniform vec3 uOffset;
 
 
 void main()
 {
-gl_Position = uProjection * uView * uModel * position;
+gl_Position = (uProjection * uView * uModel * position) -vec4(uOffset, 0.0);
 }
 
 
