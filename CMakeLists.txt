@@ -1,6 +1,9 @@
 #Author: Neil Berard 
 cmake_minimum_required(VERSION 3.8)
 
+# set (CMAKE_CXX_FLAGS -m32)
+# set(CMAKE_C_FLAGS -m32)
+
 
 if(MSVC)
   set(CMAKE_EXE_LINKER_FLAGS
@@ -87,9 +90,7 @@ add_subdirectory(extern/glfw)
 add_subdirectory(extern/spdlog)
 
 # MODEL-VIEWER 
-set_target_properties(	Model-Viewer 
-						PROPERTIES 
-						VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/Debug")
+set_target_properties(	Model-Viewer PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/Debug")
 
 
 
