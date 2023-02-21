@@ -1,4 +1,11 @@
 #include "Model.h"
+#include "Log.h"
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+
+
+
+#define IMPORT_TANGENTS (0)
 
 
 Model::Model(const char *path)
@@ -57,8 +64,11 @@ void Model::LoadModel(std::string path)
 	UnloadModel();
 
 	Assimp::Importer importer;
-	//const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+#if IMPORT_TANGENTS
 	const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+#else
+	const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+#endif
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
@@ -69,9 +79,9 @@ void Model::LoadModel(std::string path)
 	directory = path.substr(0, path.find_last_of('/'));
 	processNode(scene->mRootNode, scene);
 
-	for (int i = 0; i < mMeshes.size(); i++)
+	for (unsigned int i = 0; i < mMeshes.size(); i++)
 	{
-		mMeshes[i]->mId = i;
+		mMeshes[i]->mId = i + 1;
 	}
 	mLoaded = true;
 }
@@ -162,7 +172,7 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
 		vertices.push_back(vertex);
 	}
 
-
+#if IMPORT_TANGENTS
 	// Import Tangents
 	for (unsigned int i = 0; i < vertices.size(); i++)
 	{
@@ -173,10 +183,8 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
 		vertices[i].BiTangents.x = mesh->mBitangents[i].x;
 		vertices[i].BiTangents.y = mesh->mBitangents[i].y;
 		vertices[i].BiTangents.y = mesh->mBitangents[i].z;
-
-
 	}
-
+#endif
 
 	// Indices 
 	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
@@ -194,113 +202,100 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
 	//}
 	LOG_DEBUG("Indices Size {}", indices.size());
 
-
-
-
-
+#if !IMPORT_TANGENTS
 	// Calculate Tangents Indices
-	//for (unsigned int i = 0; i < indices.size() / 3; i++)
-	//{
+	for (unsigned int i = 0; i < indices.size() / 3; i++)
+	{
 
-	//	int v1 = indices[i * 3];
-	//	int v2 = indices[(i * 3) + 1];
-	//	int v3 = indices[(i * 3) + 2];
-
-
-	//	glm::vec3 pos1 = vertices[v1].Position;
-	//	glm::vec3 pos2 = vertices[v2].Position;
-	//	glm::vec3 pos3 = vertices[v3].Position;
-
-	//	glm::vec2 uv1 = vertices[v1].TexCoords;
-	//	glm::vec2 uv2 = vertices[v2].TexCoords;
-	//	glm::vec2 uv3 = vertices[v3].TexCoords;
-
-	//	glm::vec3 edge1 = pos2 - pos1;
-	//	glm::vec3 edge2 = pos3 - pos1;
-
-	//	glm::vec2 deltaUV1 = uv2 - uv1;
-	//	glm::vec2 deltaUV2 = uv3 - uv1;
-
-	//	glm::vec3 tangent;
-	//	glm::vec3 bitangent;
-
-	//	float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-
-	//	tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
-	//	tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
-	//	tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-
-	//	bitangent.x = f * (-deltaUV2.x * edge1.x - deltaUV1.x * edge2.x);
-	//	bitangent.y = f * (-deltaUV2.x * edge1.y - deltaUV1.x * edge2.y);
-	//	bitangent.z = f * (-deltaUV2.x * edge1.z - deltaUV1.x * edge2.z);
+		int v1 = indices[i * 3];
+		int v2 = indices[(i * 3) + 1];
+		int v3 = indices[(i * 3) + 2];
 
 
-	//	// Set Vertices tangent and bitangent. 
-	//	vertices[v1].Tangents = tangent;
-	//	vertices[v1].BiTangents = bitangent;
+		glm::vec3 pos1 = vertices[v1].Position;
+		glm::vec3 pos2 = vertices[v2].Position;
+		glm::vec3 pos3 = vertices[v3].Position;
 
-	//	vertices[v2].Tangents = tangent;
-	//	vertices[v2].BiTangents = bitangent;
+		glm::vec2 uv1 = vertices[v1].TexCoords;
+		glm::vec2 uv2 = vertices[v2].TexCoords;
+		glm::vec2 uv3 = vertices[v3].TexCoords;
 
-	//	vertices[v3].Tangents = tangent;
-	//	vertices[v3].BiTangents = bitangent;
+		glm::vec3 edge1 = pos2 - pos1;
+		glm::vec3 edge2 = pos3 - pos1;
 
-	//}
+		glm::vec2 deltaUV1 = uv2 - uv1;
+		glm::vec2 deltaUV2 = uv3 - uv1;
 
+		glm::vec3 tangent;
+		glm::vec3 bitangent;
 
+		float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
 
+		tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+		tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+		tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
 
-
-
-
-
-
-
-
-
-	//// Calculate Tangents Vertices
-	//for (unsigned int i = 0; i < mesh->mNumVertices / 3; i++)
-	//{
-	//	glm::vec3 pos1 = vertices[i * 3].Position;
-	//	glm::vec3 pos2 = vertices[(i * 3) + 1].Position;
-	//	glm::vec3 pos3 = vertices[(i * 3) + 2].Position;
-
-	//	glm::vec2 uv1 = vertices[i * 3].TexCoords;
-	//	glm::vec2 uv2 = vertices[(i * 3) + 1].TexCoords;
-	//	glm::vec2 uv3 = vertices[(i * 3) + 2].TexCoords;
-
-	//	glm::vec3 edge1 = pos2 - pos1;
-	//	glm::vec3 edge2 = pos3 - pos1;
-
-	//	glm::vec2 deltaUV1 = uv2 - uv1;
-	//	glm::vec2 deltaUV2 = uv3 - uv1;
-
-	//	glm::vec3 tangent;
-	//	glm::vec3 bitangent;
-
-	//	float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-	//	
-	//	tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
-	//	tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
-	//	tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-	//	
-	//	bitangent.x = f * (-deltaUV2.x * edge1.x - deltaUV1.x * edge2.x);
-	//	bitangent.y = f * (-deltaUV2.x * edge1.y - deltaUV1.x * edge2.y);
-	//	bitangent.z = f * (-deltaUV2.x * edge1.z - deltaUV1.x * edge2.z);
+		bitangent.x = f * (-deltaUV2.x * edge1.x - deltaUV1.x * edge2.x);
+		bitangent.y = f * (-deltaUV2.x * edge1.y - deltaUV1.x * edge2.y);
+		bitangent.z = f * (-deltaUV2.x * edge1.z - deltaUV1.x * edge2.z);
 
 
-	//	// Set Vertices tangent and bitangent. 
-	//	vertices[i * 3].Tangents = tangent;
-	//	vertices[i * 3].BiTangents = bitangent;
+		// Set Vertices tangent and bitangent. 
+		vertices[v1].Tangents = tangent;
+		vertices[v1].BiTangents = bitangent;
 
-	//	vertices[(i * 3) + 1].Tangents = tangent;
-	//	vertices[(i * 3) + 1].BiTangents = bitangent;
+		vertices[v2].Tangents = tangent;
+		vertices[v2].BiTangents = bitangent;
 
-	//	vertices[(i * 3) + 2].Tangents = tangent;
-	//	vertices[(i * 3) + 2].BiTangents = bitangent;
+		vertices[v3].Tangents = tangent;
+		vertices[v3].BiTangents = bitangent;
 
-	//}
+	}
 
+
+	// Calculate Tangents Vertices
+	for (unsigned int i = 0; i < mesh->mNumVertices / 3; i++)
+	{
+		glm::vec3 pos1 = vertices[i * 3].Position;
+		glm::vec3 pos2 = vertices[(i * 3) + 1].Position;
+		glm::vec3 pos3 = vertices[(i * 3) + 2].Position;
+
+		glm::vec2 uv1 = vertices[i * 3].TexCoords;
+		glm::vec2 uv2 = vertices[(i * 3) + 1].TexCoords;
+		glm::vec2 uv3 = vertices[(i * 3) + 2].TexCoords;
+
+		glm::vec3 edge1 = pos2 - pos1;
+		glm::vec3 edge2 = pos3 - pos1;
+
+		glm::vec2 deltaUV1 = uv2 - uv1;
+		glm::vec2 deltaUV2 = uv3 - uv1;
+
+		glm::vec3 tangent;
+		glm::vec3 bitangent;
+
+		float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+		
+		tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+		tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+		tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+		
+		bitangent.x = f * (-deltaUV2.x * edge1.x - deltaUV1.x * edge2.x);
+		bitangent.y = f * (-deltaUV2.x * edge1.y - deltaUV1.x * edge2.y);
+		bitangent.z = f * (-deltaUV2.x * edge1.z - deltaUV1.x * edge2.z);
+
+
+		// Set Vertices tangent and bitangent. 
+		vertices[i * 3].Tangents = tangent;
+		vertices[i * 3].BiTangents = bitangent;
+
+		vertices[(i * 3) + 1].Tangents = tangent;
+		vertices[(i * 3) + 1].BiTangents = bitangent;
+
+		vertices[(i * 3) + 2].Tangents = tangent;
+		vertices[(i * 3) + 2].BiTangents = bitangent;
+
+	}
+#endif
 
 	Mesh* pMesh = new Mesh(vertices, indices, textures, mesh->mName.C_Str());
 	

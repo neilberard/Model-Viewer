@@ -105,7 +105,7 @@ SimpleCube::~SimpleCube()
 
 }
 
-void SimpleCube::draw(GLenum pMode /*= GL_FILL*/)
+void SimpleCube::Draw(GLenum pMode /*= GL_FILL*/)
 {
 	//LOG_INFO("Rendering Cube with polycount {}, assimp polycount {}", this->mVertices.size(), mVertices.size());
 	glBindVertexArray(VAO);

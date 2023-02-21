@@ -11,7 +11,7 @@
 #include <map>
 #include "Debugging.h"
 #include "glm/glm.hpp"
-#include "Log.h"
+
 
 
 
@@ -26,24 +26,26 @@ struct ShaderProgramSource
 class Shader
 {
 private:
-	unsigned int mRendererID;
+	unsigned int mRendererID = 0;
 	std::string mFilePath;
 	std::unordered_map<std::string, GLint> mUniformLocationCache;
-	bool mValid;
-	bool mBinded;
+	bool mValid = false;
+	bool mBinded = false;
 
-	unsigned int mUniformBlock;
-	unsigned int mFragmentBegin;  // Store the line number of the vertex shader for debugging.
-	unsigned int mVertexBegin; // Store the line number of the fragment shader for debugging.
+	unsigned int mUniformBlock = 0;
+	unsigned int mFragmentBegin = 0;  // Store the line number of the vertex shader for debugging.
+	unsigned int mVertexBegin = 0; // Store the line number of the fragment shader for debugging.
 
 public:
-	Shader();
+	Shader() {};
 	Shader(const std::string& filepath);
 	Shader(const std::string& filepath, unsigned int pUniformBlock, const std::string& pUniformBlockStr);
 	~Shader();
 	
-	void Bind();
-	void UnBind();
+	std::string getFilePath() { return mFilePath; }
+
+	void bindShader();
+	void unbindShader();
 	void Reload();
 
 

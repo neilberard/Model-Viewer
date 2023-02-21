@@ -9,65 +9,21 @@
 #include <memory>
 
 
+#define _TEST_CODE
 
-
-class DepthFBO
+namespace Render
 {
-public:
-	DepthFBO() {};
-	DepthFBO(int pWidth, int pHeight);
-	void initialize(int pWidth, int pHeight);
-	void bind();
-	void bindFBO() { glBindFramebuffer(GL_FRAMEBUFFER, mFBO); };
-	void bindTexture(int activeLevel = 0);
-
-	void unbind();
-	void unbindFBO() { glBindFramebuffer(GL_FRAMEBUFFER, 0); };
-	void UnbindTexture() { glBindTexture(GL_TEXTURE_2D, 0); };
-
-
-private:
-	unsigned int mFBO;
-	unsigned int mTexture;
-
-	int mWidth;
-	int mHeight;
-
-};
-
-// Color id
-class ColorFBO
-{
-public:
-	ColorFBO() {};
-	ColorFBO(int pWidth, int pHeight);
-	void initialize(int pWidth, int pHeight);
-	void bind();
-	void bindFBO() { glBindFramebuffer(GL_FRAMEBUFFER, mFBO); };
-	void bindTexture(int activeLevel = 0);
-
-	void unbind();
-	void unbindFBO() { glBindFramebuffer(GL_FRAMEBUFFER, 0); };
-	void unbindTexture() { glBindTexture(GL_TEXTURE_2D, 0); };
-
-
-private:
-	unsigned int mFBO;
-	unsigned int mRBO;
-	unsigned int mRBODepth;
-	unsigned int mTexture;
-
-	int mWidth;
-	int mHeight;
-
-};
+	void _renderCube();
+	void _renderQuad();
+}
 
 
 class RenderContext
 {
 public:
 	// GLFW must be initialized before instantiating this class.
-	RenderContext(const SceneContext* pScene, GLFWwindow* pWindow, const Model* pModel, const unsigned int* pBlock);
+	RenderContext() {};
+	RenderContext(GLFWwindow* pWindow);
 	~RenderContext();
 
 	enum RenderDebug
@@ -78,19 +34,39 @@ public:
 	};
 
 	RenderDebug mRenderDebug = DEBUG_OFF;
-	
+
+
 	void resize();
-
-
 	void onDisplay();
 	void renderShadows();
 	void renderDiffuse();
 	void renderWireframe();
 	void renderSky();
-	void renderColorIds();
+	void reloadShaders();
 
+
+	// Render Cube
+	static unsigned int cubeVAO;
+	static unsigned int cubeVBO;
+	static void renderCube();
+	static void renderQuad() { Render::_renderQuad(); }
+
+	// Render Sphere
+	static unsigned int sphereVAO;
+	static unsigned int sphereVbo;
+	static unsigned int sphereEbo;
+	static unsigned int sphereIndexCount;
+	static void renderSphere();
+
+
+
+	void renderColorIds();
 	void selectObject(double xpos, double ypos);
-	int mSelected = -1;
+	void loadIBL(const char* filePath);
+
+	bool isInitialized() { return mInitialized; }
+
+	int mSelected = 0;
 
 	unsigned int mShadowResolution = 1024;
 
@@ -108,50 +84,79 @@ public:
 
 
 	// Leaving these public until I can decouple set uniforms
-	Shader mDepthShader = Shader("../../resources/shaders/simpleDepthShader.glsl");
-	Shader mPostShader = Shader("../../resources/shaders/post.glsl");
-	Shader mSkyShader = Shader("../../resources/shaders/cubemap.glsl");
-	Shader mDiffuseShader = Shader("../../resources/shaders/shadows.glsl");
-	Shader mColorShader = Shader("../../resources/shaders/color.glsl");
+	std::vector<Shader*> mShaders;
 
-	DepthFBO mDepthFBO = DepthFBO(mShadowResolution, mShadowResolution);
-	ColorFBO mColorFBO;
-	SimpleCube mSkyCube = SimpleCube(1.0, false);
-	const unsigned int* mUBO = 0; //Uniform Buffer Object
+	Shader* mPbrShader = nullptr;
+	Shader* mBackgroundShader = nullptr;
+	Shader* mDepthShader = nullptr;
+	Shader* mPostShader = nullptr;
+	Shader* mSkyShader = nullptr;
+	Shader* mColorShader = nullptr;
+	Shader* brdfShader = nullptr;
+
+	Texture* mDiffuseMap = nullptr;
+	Texture* mNormalMap = nullptr;
+
+	SimpleCube* mSkyCube = new SimpleCube(1.0, false);
+
+
+	// FRAME BUFFERS
+	CaptureFBO* mCaptureFBO = 0;
+
+	DepthFBO* mDepthFBO = nullptr;
+	ColorFBO* mColorFBO = nullptr;
+
+	// PBR IBL ----------------------------------------------------
+	Texture* mHdrMap = nullptr;
+	Texture* mBrdfLUTTexture = nullptr;
+	
+	Cubemap* mEnvCubeMap = nullptr;
+	Cubemap* mIrradianceCubeMap = nullptr;
+	Cubemap* mPrefilterCubeMap = nullptr;
+	unsigned int brdfLUTTexture;
+
+	//Shader* mEquirectangularToCubemapShader = nullptr;
+	//Shader* mIrradianceShader = nullptr;
+	//Shader* mPrefilterShader = nullptr;
+	//Shader* mBrdfShader = nullptr;
+	Shader* _prefilterShader = nullptr;
 
 
 	// UI Options
 	bool mProcessMouse = true;
 
+
+	unsigned int captureFBO, captureRBO;
+	unsigned int irradianceMap;
+	unsigned int envCubemap;
+	unsigned int hdrTexture;
+	unsigned int prefilterMap;
+
+
+
 private:
-	int mWidth;
-	int mHeight;
+	int mWidth = 0;
+	int mHeight = 0;
 
 	bool mInitialized = false;
-	const SceneContext* mScene;
+	SceneContext* mScene;
 	GLFWwindow* mWindow;
 	const Model* mModel = nullptr;
 
+	Shader* _equirectangularToCubemapShader;
 
-	std::vector<std::string>mCubemap;
-	std::string mCubeMapFormat = std::string("jpg");
-	std::string mCubeMapDir = std::string("../../extern/resources/textures/skyA/");
+
 	// Render Process shaders 
 	//--------------------------------------//
 
-	Skybox mSkyBox;
+	Cubemap mSkyBox;
 	//Shader mShadowShader;
 
+	bool mBuffersInitialized = false;
 
-	Texture mDiffuseMap = Texture("../../extern/resources/textures/Medieval_1K_diffuse.png");
-	Texture mNormalMap = Texture("../../extern/resources/textures/brickwall_normal.jpg");
+	Shader* _irradianceShader;
 
 
 
-	// TEXTURE SLOTS
-	int mSkyTextureSlot = 0;
-	int mShadowTextureSlot = 1;
-	int mDepthTextureSlot = 2;
-	int mNormalTextureSlot = 3;
-	int mDiffuseTextureSlot = 4;
 };
+

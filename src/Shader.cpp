@@ -1,30 +1,34 @@
 #include "Shader.h"
-
+#include "Log.h"
+#include <filesystem>
+#include <iostream>
 
 Shader::Shader(const std::string& filepath)
 	: mFilePath(filepath), mRendererID(0), mBinded(false)
 {
-	ShaderProgramSource source = Shader::ParseShader(filepath);
+	std::string p = std::filesystem::absolute(filepath).string();
+	mFilePath = p;
+
+	ShaderProgramSource source = Shader::ParseShader(mFilePath);
 	mRendererID = CreateShader(source.VertexSource, source.FragmentSource);	
 	mValid = true;
 }
 
-Shader::Shader()
-{
-	LOG_WARNING("Shader Not Initialized!");
-}
 
 Shader::Shader(const std::string& filepath, unsigned int pUniformBlock, const std::string& pUniformBlockStr)
 	: mFilePath(filepath), mRendererID(0), mUniformBlock(pUniformBlock)
 {
-	ShaderProgramSource source = Shader::ParseShader(filepath);
+	std::string p = std::filesystem::absolute(filepath).string();
+	mFilePath = p;
+
+	ShaderProgramSource source = Shader::ParseShader(mFilePath);
 	mRendererID = CreateShader(source.VertexSource, source.FragmentSource);
 	mValid = true;
 
 	// Set Uniform Block, used for global values such as Proj, View  matrices etc..
-	Bind();
+	bindShader();
 	SetUniform1i(pUniformBlockStr.c_str(), mUniformBlock);
-	UnBind();
+	unbindShader();
 
 }
 
@@ -37,7 +41,7 @@ Shader::~Shader()
 	}
 }
 
-void Shader::Bind()
+void Shader::bindShader()
 {
 	if (mValid != true)
 	{
@@ -48,7 +52,7 @@ void Shader::Bind()
 	mBinded = true;
 }
 
-void Shader::UnBind()
+void Shader::unbindShader()
 {
 	if (mValid != true)
 	{
@@ -153,14 +157,22 @@ GLint Shader::GetUniformLocation(const std::string& name)
 
 ShaderProgramSource Shader::ParseShader(const std::string& filepath)
 {
+
+
+	LOG_INFO("Looking for shader file {}", filepath.c_str());
+
 	//Check if file exists!
-	if (FILE *file = fopen(filepath.c_str(), "r"))
+	
+	FILE* pFile;
+	errno_t err;
+	if ((err = fopen_s(&pFile, filepath.c_str(), "r")) != 0)
 	{
-		fclose(file);
+		LOG_ERROR("\nCould not find shader! Check file path! {}", filepath.c_str());
 	}
 	else 
 	{
-		LOG_ERROR("\nCould not find shader! Check file path! {}", filepath.c_str());
+		fclose(pFile);
+		
 	}
 
 

@@ -90,6 +90,7 @@ add_subdirectory(extern/assimp)
 add_subdirectory(extern/glfw)
 add_subdirectory(extern/spdlog)
 
+
 # MODEL-VIEWER 
 set_target_properties(	Model-Viewer 
 	PROPERTIES 
@@ -114,7 +115,7 @@ add_dependencies(Model-Viewer assimp glfw IrrXML zlibstatic spdlog)
 target_link_libraries(Model-Viewer
 
 						# ASSIMP DEBUG LINK 
-						debug "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Debug/assimp-vc141-mtd.lib"
+						debug "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Debug/assimp-vc142-mtd.lib"
 						debug "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Debug/IrrXMLd.lib"
 						debug "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Debug/zlibstaticd.lib"
 						
@@ -126,7 +127,7 @@ target_link_libraries(Model-Viewer
 						general "opengl32.lib"
 						
 						# ASSIMP RELEASE LINK
-						optimized "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Release/assimp-vc141-mt.lib"
+						optimized "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Release/assimp-vc142-mt.lib"
 						optimized "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Release/IrrXML.lib"
 						optimized "${CMAKE_CURRENT_SOURCE_DIR}/build/extern/assimp/lib/Release/zlibstatic.lib"							
 						
@@ -137,12 +138,15 @@ target_link_libraries(Model-Viewer
 						)
 
 #INCLUDES
-include_directories(${MyProject_SOURCE_DIR}extern/assimp/include 
+include_directories(
+					${MyProject_SOURCE_DIR}extern/assimp/include 
 					${MyProject_SOURCE_DIR}extern/glm 
 					${MyProject_SOURCE_DIR}build/extern/assimp/include
 					${MyProject_SOURCE_DIR}extern # IMGUI
 					${MyProject_SOURCE_DIR}extern/imgui # IMGUI 					
 					${MyProject_SOURCE_DIR}extern/glfw/include
 					${MyProject_SOURCE_DIR}extern/glew/include
-					${MyProject_SOURCE_DIR}extern/spdlog/include)
+					${MyProject_SOURCE_DIR}extern/spdlog/include
+					${MyProject_SOURCE_DIR}extern/learnopengl/include
+					)
 					

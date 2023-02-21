@@ -1,13 +1,11 @@
-#ifndef CAMERA_H
-#define CAMERA_H
-
+#pragma once
 
 #include <vector>
 #include <gl/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-enum Camera_Movement
+static enum Camera_Movement
 {
 	FORWARD,
 	BACKWARD,
@@ -61,9 +59,9 @@ public:
 		
 	}
 
-	glm::vec3 Position() { return this->position; }
+	glm::vec3 getPosition() { return this->position; }
 
-	glm::mat4 GetViewMatrix()
+	glm::mat4 getViewMatrix()
 	{
 		return glm::lookAt(this->position, this->position + this->front, this->up);
 	}
@@ -154,19 +152,3 @@ public:
 
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#endif // !CAMERA_H

@@ -1,16 +1,11 @@
 #pragma once
 
 #include <stdio.h>
+#include <assimp/scene.h>
 #include <vector>
 #include <string>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 #include "Mesh.h"
-#include "Log.h"
+
 
 
 class Model
@@ -33,12 +28,11 @@ private:
 	std::string directory;
 
 
-
 	void processNode(aiNode *node, const aiScene *scene);
 
 	void processMesh(aiMesh *mesh, const aiScene *scene);
 
-	std::vector<TextureID> loadMaterialTextures(aiMaterial *mat, aiTextureType type, std::string typeName);
+	//std::vector<TextureID> loadMaterialTextures(aiMaterial *mat, aiTextureType type, std::string typeName);
 
 
 };

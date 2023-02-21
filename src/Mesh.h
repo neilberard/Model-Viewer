@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Debugging.h"
+#include "Texture.h"
 #include "Shader.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -17,11 +18,6 @@ struct Vertex {
 	glm::vec3 BaryCentricCoords;
 	glm::vec3 Tangents;
 	glm::vec3 BiTangents;
-};
-
-struct TextureID {
-	unsigned int id;
-	std::string type;
 };
 
 
@@ -47,9 +43,12 @@ public:
 
 	// For shadows. If this is considered ground or floor.
 	bool mFloor = false;
+	
 	Mesh();
 	Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<TextureID> textures, std::string meshName);
 	~Mesh();
+
+
 	void draw();
 	void draw(GLenum pMode);
 
@@ -121,7 +120,7 @@ public:
 	std::vector<TextureID> mTextures;
 	SimpleCube(float pSize, bool pReverseNormals=false);
 	~SimpleCube();
-	void draw(GLenum pMode = GL_FILL);
+	void Draw(GLenum pMode = GL_FILL);
 	void setupMesh();
 private:
 	unsigned int VAO, VBO, EBO;
