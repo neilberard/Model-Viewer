@@ -1,4 +1,6 @@
 #include <iostream>
+#include <windows.h>
+#include <shobjidl_core.h>
 #include <gl/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -81,7 +83,7 @@ int main()
 	glfwSetScrollCallback(window, scroll_callback);
 
 	// tell GLFW to capture our mouse
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 
 	if (glewInit() != GLEW_OK)
@@ -293,19 +295,19 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(Camera_Movement::RIGHT, deltaTime);
 
 	// PROCESS MOUSE
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-	{
-		if (processMouse)
-		{
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			processMouse = false;
-		}
-		else
-		{
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-			processMouse = true;
-		}
-	}
+	//if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+	//{
+	//	if (processMouse)
+	//	{
+	//		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	//		processMouse = false;
+	//	}
+	//	else
+	//	{
+	//		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	//		processMouse = true;
+	//	}
+	//}
 
 
 
@@ -325,10 +327,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 // -------------------------------------------------------
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
-	if (!processMouse)
-	{
-		return;
-	}
+	//if (!processMouse)
+	//{
+	//	return;
+	//}
+
+	int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
 
 
 
@@ -348,8 +352,11 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 	lastX = xpos;
 	lastY = ypos;
 
+	if (state == GLFW_PRESS)
+	{
+		camera.ProcessMouseMovement(xoffset, yoffset);
+	}
 
-	camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
@@ -362,32 +369,87 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 // renders (and builds at first invocation) a sphere
 // -------------------------------------------------
 
-std::string openfilename(const char* filter) {
-	OPENFILENAME ofn;
-	char fileName[MAX_PATH] = "";
-	ZeroMemory(&ofn, sizeof(ofn));
-	ofn.lStructSize = sizeof(OPENFILENAME);
-	ofn.hwndOwner = NULL;
-	ofn.lpstrFilter = (char*)filter;
-	ofn.lpstrFile = fileName;
-	ofn.nMaxFile = MAX_PATH;
-	ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
-	ofn.lpstrDefExt = "";
-	std::string fileNameStr;
-	if (GetOpenFileName(&ofn))
+std::string openfilename(const char* filter, const char* initialDir="") 
+{
+	// Open File Dialog.
+	IFileOpenDialog* pFileOpen;
+	IShellItem* pStartDir;
+
+	// Setup the initial Directory to start in.
+	char absolutePath[MAX_PATH];
+	char* fileExt;
+	GetFullPathName(TEXT(initialDir), MAX_PATH, absolutePath, &fileExt);
+	LOG_INFO("Opening Initial Directory {}", absolutePath);
+	
+	
+	// Need to convert char to wide char for windows.
+	const size_t cSize = strlen(absolutePath) + 1;
+	std::wstring wc(cSize, L'#');
+	mbstowcs(&wc[0], absolutePath, cSize);
+	
+	
+	SHCreateItemFromParsingName(wc.c_str(), NULL, IID_IShellItem, (void**) &pStartDir);
+
+	// Create the FileOpenDialog object.
+	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+	hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
+	if (!SUCCEEDED(hr))
 	{
-		fileNameStr = fileName;
+		LOG_ERROR("Failed to create CoInitializeEx.");
+		return "";
 	}
-	return fileNameStr;
+
+	hr = pFileOpen->SetFolder(pStartDir);
+	if (!SUCCEEDED(hr))
+	{
+		LOG_ERROR("Failed to set Folder!");
+		return "";
+	}
+
+	hr = pFileOpen->Show(NULL);
+	if (!SUCCEEDED(hr))
+	{
+		LOG_ERROR("Failed to Show Dialog");
+		return "";
+	}
+	IShellItem* pitem;
+	hr = pFileOpen->GetResult(&pitem);
+	if (!SUCCEEDED(hr))
+	{
+		LOG_ERROR("Failed to Show Dialog");
+		return "";
+	}
+
+	PWSTR pszFilePath;
+	hr = pitem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+	if (!SUCCEEDED(hr))
+	{
+		LOG_ERROR("Failed to get File Path");
+		pitem->Release();
+		CoUninitialize();
+		return "";
+	}
+
+	char output[MAX_PATH];
+	wcstombs(output, pszFilePath, MAX_PATH);
+	CoTaskMemFree(pszFilePath);
+	pitem->Release();
+	CoUninitialize();
+
+	LOG_INFO("Opening File {}", output);
+	return output;
+
 }
 
 const char* pfilter = "All Files (*.*)\0*.*\0";
 
 void loadIBL(std::string fileNameStr = "")
 {
+	const char* initialDir = "..\\..\\extern\\resources\\IBL";
+
 	if (!fileNameStr.size())  // Open File dialog if no filename is provided.
 	{
-		fileNameStr = openfilename(pfilter).c_str();
+		fileNameStr = openfilename(pfilter, initialDir).c_str();
 	}
 	if (fileNameStr.size())
 	{
@@ -396,6 +458,16 @@ void loadIBL(std::string fileNameStr = "")
 
 }
 
+void loadFBX(std::string fileNameStr)
+{
+	const char* fbxDir = "..\\..\\resources\\fbx";
+
+	if (!fileNameStr.size())  // Open File dialog if no filename is provided.
+	{
+		fileNameStr = openfilename(pfilter, fbxDir).c_str();
+	}
+	assimpModel->LoadModel(fileNameStr.c_str());
+}
 
 void ProcessUI()
 {
@@ -433,14 +505,6 @@ void ProcessUI()
 }
 
 
-void loadFBX(std::string fileNameStr)
-{
-	if (!fileNameStr.size())  // Open File dialog if no filename is provided.
-	{
-		fileNameStr = openfilename(pfilter).c_str();
-	}
-	assimpModel->LoadModel(fileNameStr.c_str());
-}
 
 
 
