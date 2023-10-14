@@ -26,15 +26,25 @@ public:
 	RenderContext(GLFWwindow* pWindow);
 	~RenderContext();
 
-	enum RenderDebug
+
+	// For UI selection. These Names should match the RenderMode Enum names.
+	const char* mRenderModeNames[3]{ "Wireframe", "Shaded", "Wireframe_on_shaded"};
+
+	enum RenderMode
 	{
-		DEBUG_OFF = 0,
-		NORMAL = 1,
-		WIREFRAME = 2,
+		WIREFRAME = 0,
+		SHADED = 1,
+		WIREFRAME_ON_SHADED = 2
 	};
 
-	RenderDebug mRenderDebug = DEBUG_OFF;
+	RenderMode mRenderMode = WIREFRAME;
+	
+	glm::vec3 mAlbedo = glm::vec3(0.5);
+	float mRoughness = 0.5;
+	float mMetallic = 0.5;
 
+
+	void setRenderMode(int pMode) { mRenderMode = static_cast<RenderMode>(pMode);}
 
 	void resize();
 	void onDisplay();
@@ -93,6 +103,8 @@ public:
 	Shader* mSkyShader = nullptr;
 	Shader* mColorShader = nullptr;
 	Shader* brdfShader = nullptr;
+
+
 
 	Texture* mDiffuseMap = nullptr;
 	Texture* mNormalMap = nullptr;
@@ -155,7 +167,6 @@ private:
 	bool mBuffersInitialized = false;
 
 	Shader* _irradianceShader;
-
 
 
 };

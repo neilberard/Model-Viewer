@@ -150,7 +150,8 @@ int main()
 	renderer->mBackgroundShader->bindShader();
 	renderer->mBackgroundShader->SetUniformMat4f("projection", projection);
 
-
+	renderer->mColorShader->bindShader();
+	renderer->mColorShader->SetUniformMat4f("projection", projection);
 
 	// then before rendering, configure the viewport to the original framebuffer's screen dimensions
 	int scrWidth, scrHeight;
@@ -196,8 +197,6 @@ int main()
 		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, renderer->brdfLUTTexture);
 
-
-
 		//for (int row = 0; row < nrRows; ++row)
 		//{
 
@@ -240,20 +239,41 @@ int main()
 
 
 		// render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
-		glm::mat4 new_model = glm::mat4(1.0f);
 
-		renderer->mPbrShader->SetUniform1f("roughness", 0.5f);
-		renderer->mPbrShader->SetUniform1f("metallic", 0.5f);
-		renderer->mPbrShader->SetUniformMat4f("model", new_model);
+		switch (renderer->mRenderMode)
+		{
 
-		assimpModel->Draw();
-		
-		
-		model = glm::mat4(1.0f);
+		case RenderContext::RenderMode::WIREFRAME: 
+		{
+			// Debug WireFrame
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			glCullFace(GL_BACK);
+			renderer->mColorShader->bindShader();
+			renderer->mColorShader->SetUniformMat4f("view", view);
+			renderer->mColorShader->SetUniformMat4f("model", model);
+			renderer->mColorShader->SetUniform3f("albedo", renderer->mAlbedo);
+			assimpModel->Draw();
+			break;
+				
+		};
+
+		case RenderContext::RenderMode::SHADED:
+		{
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			renderer->mPbrShader->SetUniform3f("albedo", renderer->mAlbedo);
+			renderer->mPbrShader->SetUniform1f("roughness", renderer->mRoughness);
+			renderer->mPbrShader->SetUniform1f("metallic", renderer->mMetallic);
+			renderer->mPbrShader->SetUniformMat4f("model", model);
+			assimpModel->Draw();
+			break;
+		};
+
+		}
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		renderer->mBackgroundShader->bindShader();
 		renderer->mBackgroundShader->SetUniformMat4f("view", view);
-
-
+		
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->envCubemap);
 		
@@ -293,24 +313,6 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(Camera_Movement::LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(Camera_Movement::RIGHT, deltaTime);
-
-	// PROCESS MOUSE
-	//if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-	//{
-	//	if (processMouse)
-	//	{
-	//		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-	//		processMouse = false;
-	//	}
-	//	else
-	//	{
-	//		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	//		processMouse = true;
-	//	}
-	//}
-
-
-
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -373,7 +375,7 @@ std::string openfilename(const char* filter, const char* initialDir="")
 {
 	// Open File Dialog.
 	IFileOpenDialog* pFileOpen;
-	IShellItem* pStartDir;
+	IShellItem* pStartDir = nullptr;
 
 	// Setup the initial Directory to start in.
 	char absolutePath[MAX_PATH];
@@ -387,11 +389,15 @@ std::string openfilename(const char* filter, const char* initialDir="")
 	std::wstring wc(cSize, L'#');
 	mbstowcs(&wc[0], absolutePath, cSize);
 	
-	
-	SHCreateItemFromParsingName(wc.c_str(), NULL, IID_IShellItem, (void**) &pStartDir);
-
 	// Create the FileOpenDialog object.
 	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+	hr = SHCreateItemFromParsingName(wc.c_str(), NULL, IID_IShellItem, (void**) &pStartDir);
+	if (!SUCCEEDED(hr))
+	{
+		LOG_WARNING("Failed to create start dir shell item. Directory might not exist? {}", absolutePath);
+	}
+
 	hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
 	if (!SUCCEEDED(hr))
 	{
@@ -399,17 +405,18 @@ std::string openfilename(const char* filter, const char* initialDir="")
 		return "";
 	}
 
-	hr = pFileOpen->SetFolder(pStartDir);
+	hr = pFileOpen->SetDefaultFolder(pStartDir);
 	if (!SUCCEEDED(hr))
 	{
-		LOG_ERROR("Failed to set Folder!");
+		LOG_ERROR("Failed to set Default Folder!");
 		return "";
 	}
+	hr = pFileOpen->SetFolder(pStartDir);
 
 	hr = pFileOpen->Show(NULL);
 	if (!SUCCEEDED(hr))
 	{
-		LOG_ERROR("Failed to Show Dialog");
+		LOG_WARNING("Failed to get file. User likely closed the dialog.");
 		return "";
 	}
 	IShellItem* pitem;
@@ -445,7 +452,7 @@ const char* pfilter = "All Files (*.*)\0*.*\0";
 
 void loadIBL(std::string fileNameStr = "")
 {
-	const char* initialDir = "..\\..\\extern\\resources\\IBL";
+	const char* initialDir = "..\\..\\extern\\resources\\ibl";
 
 	if (!fileNameStr.size())  // Open File dialog if no filename is provided.
 	{
@@ -468,6 +475,8 @@ void loadFBX(std::string fileNameStr)
 	}
 	assimpModel->LoadModel(fileNameStr.c_str());
 }
+
+int drawMode = 0;
 
 void ProcessUI()
 {
@@ -493,9 +502,15 @@ void ProcessUI()
 			loadFBX();
 		}
 
-
+		
 		// TODO: Swap out Shading with renderer.
-		//ImGui::Checkbox("Wireframe on shaded", &renderer->wireFrameOnShaded);
+		bool modeChanged = ImGui::Combo("Draw Mode", &drawMode, renderer->mRenderModeNames, IM_ARRAYSIZE(renderer->mRenderModeNames));
+		if (modeChanged) { renderer->setRenderMode(static_cast<RenderContext::RenderMode>(drawMode)); }
+
+		ImGui::ColorEdit3("Albedo", &renderer->mAlbedo.x);
+		ImGui::SliderFloat("Roughness", &renderer->mRoughness, 0.0f, 1.0f);
+		ImGui::SliderFloat("Metallic", &renderer->mMetallic, 0.0f, 1.0f);
+
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		ImGui::End();
 	}

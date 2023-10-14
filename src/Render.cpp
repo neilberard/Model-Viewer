@@ -20,12 +20,24 @@ RenderContext::RenderContext(GLFWwindow* pWindow) :
 {
 	glfwGetWindowSize(mWindow, &mWidth, &mHeight);
 	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
+	mPbrShader = new Shader("../../resources/shaders/pbr.glsl");
+	mShaders.push_back(mPbrShader);
+
+	mBackgroundShader = new Shader("../../resources/shaders/background.glsl");
+	mShaders.push_back(mBackgroundShader);
+	
+	mColorShader = new Shader("../../resources/shaders/debug/color.glsl");
+	mShaders.push_back(mColorShader);
 }
 
 RenderContext::~RenderContext()
 {
 	LOG_INFO("Deleting RenderContext. Goodbye!");
 	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
+	
+
+
+
 	if (mHdrMap != nullptr)
 	{
 		delete mHdrMap;
@@ -398,8 +410,6 @@ void RenderContext::loadIBL(const char* filePath)
 {
 	if (!mBuffersInitialized)
 	{
-		mPbrShader = new Shader("../../resources/shaders/pbr.glsl");
-		mBackgroundShader = new Shader("../../resources/shaders/background.glsl");
 
 		glGenFramebuffers(1, &captureFBO);
 		glGenRenderbuffers(1, &captureRBO);

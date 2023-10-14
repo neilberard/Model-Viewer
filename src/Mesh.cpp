@@ -75,6 +75,7 @@ void Mesh::draw()
 		return;
 	}
 	GLCall(glBindVertexArray(mVAO););
+
 	glDrawElements(GL_TRIANGLES, mIndices.size(), GL_UNSIGNED_INT, nullptr);
 
 
