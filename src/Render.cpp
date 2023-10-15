@@ -5,6 +5,7 @@
 #endif // _TEST_CODE
 
 
+
 // Initializing Static members.
 unsigned int RenderContext::cubeVAO = 0;
 unsigned int RenderContext::cubeVBO = 0;
@@ -20,14 +21,10 @@ RenderContext::RenderContext(GLFWwindow* pWindow) :
 {
 	glfwGetWindowSize(mWindow, &mWidth, &mHeight);
 	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
-	mPbrShader = new Shader("../../resources/shaders/pbr.glsl");
-	mShaders.push_back(mPbrShader);
+	mPbrShader = addShader("../../resources/shaders/pbr.glsl");
+	mBackgroundShader = addShader("../../resources/shaders/background.glsl");	
+	mColorShader = addShader("../../resources/shaders/debug/color.glsl");
 
-	mBackgroundShader = new Shader("../../resources/shaders/background.glsl");
-	mShaders.push_back(mBackgroundShader);
-	
-	mColorShader = new Shader("../../resources/shaders/debug/color.glsl");
-	mShaders.push_back(mColorShader);
 }
 
 RenderContext::~RenderContext()
@@ -36,28 +33,7 @@ RenderContext::~RenderContext()
 	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
 	
 
-
-
-	if (mHdrMap != nullptr)
-	{
-		delete mHdrMap;
-	}
-	delete _equirectangularToCubemapShader;
-
-	// PBR
-	delete mPbrShader;
-
-	// Depth
-	delete mDepthShader;
-
-	// Post
-	delete mPostShader;
-
-	// Sky
-	delete mSkyShader;
-
-	// Color
-	delete mColorShader;
+	delete mHdrMap;
 
 	// --- Process IBL SHADERS 
 	delete mEnvCubeMap;
@@ -72,6 +48,16 @@ RenderContext::~RenderContext()
 	delete mDiffuseMap;
 	delete mNormalMap; 
 
+}
+
+Shader* RenderContext::addShader(const char* pShader)
+{
+	if (mShaderMap.find(pShader) == mShaderMap.end())
+	{
+		Shader* shader = new Shader(pShader);
+		mShaderMap[pShader] = shader;
+	}
+	return mShaderMap[pShader];
 }
 
 void RenderContext::resize()
@@ -186,13 +172,8 @@ void RenderContext::renderSky()
 
 void RenderContext::reloadShaders()
 {
-	for each (Shader* shader in mShaders)
-	{
-		if (shader != nullptr)
-		{
-			shader->Reload();
-		}
-	}
+	LOG_NOT_IMPLEMENTED_ERROR("Doh! Can't reload shaders.");
+
 }
 
 void RenderContext::renderCube()
@@ -421,9 +402,9 @@ void RenderContext::loadIBL(const char* filePath)
 
 		glGenTextures(1, &hdrTexture);
 
-		_equirectangularToCubemapShader = new Shader("../../resources/shaders/equirectangularMap.glsl");
+		_equirectangularToCubemapShader = addShader("../../resources/shaders/equirectangularMap.glsl");
 
-		_irradianceShader = new Shader("../../resources/shaders/irradiance.glsl");
+		_irradianceShader = addShader("../../resources/shaders/irradiance.glsl");
 
 
 		// envCubemap
@@ -470,12 +451,12 @@ void RenderContext::loadIBL(const char* filePath)
 		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 		
-		_prefilterShader = new Shader("../../resources/shaders/prefilter.glsl");
+		_prefilterShader = addShader("../../resources/shaders/prefilter.glsl");
 		// Prefilter end
 
 
 		// brdf Lut
-		brdfShader = new Shader("../../resources/shaders/brdf.glsl");
+		brdfShader = addShader("../../resources/shaders/brdf.glsl");
 
 		glGenTextures(1, &brdfLUTTexture);
 

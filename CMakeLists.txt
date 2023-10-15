@@ -32,7 +32,6 @@ set(MODEL_VIEWER_SOURCE_LIST
 	"src/Camera.h"
 	"src/Debugging.cpp"
 	"src/Debugging.h"
-	"src/GLfunctions.h"
 	"src/IndexBuffer.cpp"
 	"src/IndexBuffer.h"
 	"src/main.cpp"
@@ -46,8 +45,6 @@ set(MODEL_VIEWER_SOURCE_LIST
 	"src/Texture.h"
 	"src/Log.h"
 	"src/Log.cpp"
-	"src/Scene.cpp"
-	"src/Scene.h"
 	"src/Render.h"
 	"src/Render.cpp"
 	

@@ -1,12 +1,12 @@
 #pragma once 
 #include "GL/glew.h"
 #include "Log.h"
-#include "Scene.h"
 #include "Shader.h"
 #include "Model.h"
 #include "Texture.h"
 #include "Debugging.h"
 #include <memory>
+#include <map>
 
 
 #define _TEST_CODE
@@ -28,23 +28,24 @@ public:
 
 
 	// For UI selection. These Names should match the RenderMode Enum names.
-	const char* mRenderModeNames[3]{ "Wireframe", "Shaded", "Wireframe_on_shaded"};
+	const char* mRenderModeNames[2]{ "Wireframe", "Shaded"};
 
 	enum RenderMode
 	{
 		WIREFRAME = 0,
 		SHADED = 1,
-		WIREFRAME_ON_SHADED = 2
 	};
 
 	RenderMode mRenderMode = WIREFRAME;
 	
+	// Shader Parameter Values.
 	glm::vec3 mAlbedo = glm::vec3(0.5);
 	float mRoughness = 0.5;
 	float mMetallic = 0.5;
 
 
 	void setRenderMode(int pMode) { mRenderMode = static_cast<RenderMode>(pMode);}
+	Shader* addShader(const char* pShader);
 
 	void resize();
 	void onDisplay();
@@ -94,8 +95,6 @@ public:
 
 
 	// Leaving these public until I can decouple set uniforms
-	std::vector<Shader*> mShaders;
-
 	Shader* mPbrShader = nullptr;
 	Shader* mBackgroundShader = nullptr;
 	Shader* mDepthShader = nullptr;
@@ -103,9 +102,7 @@ public:
 	Shader* mSkyShader = nullptr;
 	Shader* mColorShader = nullptr;
 	Shader* brdfShader = nullptr;
-
-
-
+	
 	Texture* mDiffuseMap = nullptr;
 	Texture* mNormalMap = nullptr;
 
@@ -147,11 +144,13 @@ public:
 
 
 private:
+
+	std::map<const char*, Shader*> mShaderMap;
+
 	int mWidth = 0;
 	int mHeight = 0;
 
 	bool mInitialized = false;
-	SceneContext* mScene;
 	GLFWwindow* mWindow;
 	const Model* mModel = nullptr;
 
