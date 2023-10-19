@@ -1,8 +1,9 @@
 #include "Render.h"
-
-#ifdef _TEST_CODE
+#include "Log.h"
 #include "stb/stb_image.h"
-#endif // _TEST_CODE
+#include "Debugging.h"
+#include <bitset>
+
 
 
 
@@ -32,7 +33,7 @@ RenderContext::~RenderContext()
 	LOG_INFO("Deleting RenderContext. Goodbye!");
 	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
 	
-
+	// TODO This manual clean
 	delete mHdrMap;
 
 	// --- Process IBL SHADERS 
@@ -117,11 +118,6 @@ void RenderContext::renderShadows()
 
 void RenderContext::renderDiffuse()
 {
-
-	//mDepthFBO->bindTexture(mDepthTextureSlot);
-	//mDiffuseMap->BindTexture(mDiffuseTextureSlot);
-	//mNormalMap->BindTexture(mNormalTextureSlot);
-
 	int width, height;
 	glfwGetWindowSize(mWindow, &width, &height);
 	glViewport(0, 0, width, height);
@@ -476,23 +472,48 @@ void RenderContext::loadIBL(const char* filePath)
 	// ---------------------------------
 	stbi_set_flip_vertically_on_load(true);
 	int width, height, nrComponents;
-	float* data = stbi_loadf(filePath, &width, &height, &nrComponents, 0);
-	unsigned int hdrTexture = 0;
-	if (data)
-	{
-		glBindTexture(GL_TEXTURE_2D, hdrTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data); // note how we specify the texture's data value to be float
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	
+	float* data = nullptr;
 
-		stbi_image_free(data);
+	if (filePath != nullptr)
+	{
+		data = stbi_loadf(filePath, &width, &height, &nrComponents, 0);
 	}
 	else
 	{
-		std::cout << "Failed to load HDR image." << std::endl;
+		// Clear IBL Map
+		// Use 1 Pixel IBL texture to clear HDR image values.
+		// Note: glClearTexImage() appears to fail with hdrTexture but works fine with the envCubemap. 
+		// I wonder if the internal format is the cause?
+		// The error I get is GL_INVALID_OPERATION and in reviewing the documentation, I don't see a reason to trigger that failure.
+		width = 1;
+		height = 1;
+		nrComponents = 3;
+		int length = width * height * 3;
+		data = (float*)malloc(length * sizeof(float));
+		if (data == nullptr)
+		{
+			LOG_ERROR("Cound not allocate buffer to clear IBL!");
+		}
+		for (int i = 0; i < length; i++)
+		{
+			// Shader will fail to draw the mesh in shaded mode if IBL value is zero. 
+			// So we give it a low value instead.
+			data[i] = 0.000001;
+		}
 	}
+
+	unsigned int hdrTexture = 0;
+	glBindTexture(GL_TEXTURE_2D, hdrTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data); // note how we specify the texture's data value to be float
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	stbi_image_free(data);
+
+
 
 	// pbr: setup cubemap to render to and attach to framebuffer
 	// ---------------------------------------------------------
@@ -624,6 +645,12 @@ void RenderContext::loadIBL(const char* filePath)
 }
 
 
+void RenderContext::clearIBL()
+{
+	LOG_INFO("Clear IBL!");
+	if (!mBuffersInitialized) { return; }
+	loadIBL(nullptr);
+}
 
 namespace Render
 {

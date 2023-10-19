@@ -1,11 +1,8 @@
 #pragma once 
 #include "GL/glew.h"
-#include "Log.h"
 #include "Shader.h"
-#include "Model.h"
 #include "Texture.h"
-#include "Debugging.h"
-#include <memory>
+#include "Model.h"
 #include <map>
 
 
@@ -43,7 +40,6 @@ public:
 	float mRoughness = 0.5;
 	float mMetallic = 0.5;
 
-
 	void setRenderMode(int pMode) { mRenderMode = static_cast<RenderMode>(pMode);}
 	Shader* addShader(const char* pShader);
 
@@ -54,7 +50,6 @@ public:
 	void renderWireframe();
 	void renderSky();
 	void reloadShaders();
-
 
 	// Render Cube
 	static unsigned int cubeVAO;
@@ -73,7 +68,10 @@ public:
 
 	void renderColorIds();
 	void selectObject(double xpos, double ypos);
+
+	int mRenderIBL = 0;
 	void loadIBL(const char* filePath);
+	void clearIBL();
 
 	bool isInitialized() { return mInitialized; }
 
@@ -85,13 +83,17 @@ public:
 	glm::mat4 mModelSpace = glm::mat4();
 
 	// Render Options
-	bool mWireFrameOnShaded = false;
-	bool mDrawReflections = true;
-	bool mDrawShadows = true;
-	bool mDrawTextures = false;
-	bool mDrawNormals = true;
-	bool mDrawSky = true;
-	bool mDrawDebug = false;
+	bool mEnableLight0 = false;
+	glm::vec3 mLightColor0 = glm::vec3(1.0);
+	glm::vec3 mLightPos0 = glm::vec3();
+
+	bool mEnableLight1 = false;
+	glm::vec3 mLightColor1 = glm::vec3(1.0);
+	glm::vec3 mLightPos1 = glm::vec3();
+
+	bool mEnableLight2 = false;
+	glm::vec3 mLightColor2 = glm::vec3(1.0);
+	glm::vec3 mLightPos2 = glm::vec3();
 
 
 	// Leaving these public until I can decouple set uniforms
@@ -110,8 +112,6 @@ public:
 
 
 	// FRAME BUFFERS
-	CaptureFBO* mCaptureFBO = 0;
-
 	DepthFBO* mDepthFBO = nullptr;
 	ColorFBO* mColorFBO = nullptr;
 
@@ -124,23 +124,15 @@ public:
 	Cubemap* mPrefilterCubeMap = nullptr;
 	unsigned int brdfLUTTexture;
 
-	//Shader* mEquirectangularToCubemapShader = nullptr;
-	//Shader* mIrradianceShader = nullptr;
-	//Shader* mPrefilterShader = nullptr;
-	//Shader* mBrdfShader = nullptr;
 	Shader* _prefilterShader = nullptr;
 
 
 	// UI Options
-	bool mProcessMouse = true;
-
-
 	unsigned int captureFBO, captureRBO;
 	unsigned int irradianceMap;
 	unsigned int envCubemap;
 	unsigned int hdrTexture;
 	unsigned int prefilterMap;
-
 
 
 private:
@@ -166,7 +158,6 @@ private:
 	bool mBuffersInitialized = false;
 
 	Shader* _irradianceShader;
-
 
 };
 

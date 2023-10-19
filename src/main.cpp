@@ -19,7 +19,7 @@
 
 
 
-// Foward Declarations
+// Forward Declarations
 void loadFBX(std::string fileNameStr = "");
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -131,8 +131,6 @@ int main()
 
 
 	renderer = new RenderContext(window);
-	renderer->loadIBL("C:/Dev/cpp/Model-Viewer/extern/resources/IBL/newport_loft.hdr");
-
 
 	// initialize static shader uniforms before rendering
 	// --------------------------------------------------
@@ -140,7 +138,6 @@ int main()
 
 	renderer->mPbrShader->bindShader();
 	renderer->mPbrShader->SetUniformMat4f("projection", projection);
-
 	renderer->mPbrShader->SetUniform1i("irradianceMap", 0);
 	renderer->mPbrShader->SetUniform1i("prefilterMap", 1);
 	renderer->mPbrShader->SetUniform1i("brdfLUT", 2);
@@ -159,6 +156,7 @@ int main()
 	glViewport(0, 0, scrWidth, scrHeight);
 
 	assimpModel = new Model();
+	glm::mat4 model = glm::mat4(1.0f);
 
 
 	// render loop
@@ -180,65 +178,11 @@ int main()
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		glm::mat4 view = camera.getViewMatrix();
+
+
 		// render scene, supplying the convoluted irradiance map to the final shader.
 		// --------------------------------------------------------------------------
-		renderer->mPbrShader->bindShader();
-		glm::mat4 view = camera.getViewMatrix();
-		renderer->mPbrShader->SetUniformMat4f("view", view);
-		renderer->mPbrShader->SetUniform3f("camPos", camera.getPosition());
-
-		glm::mat4 model = glm::mat4(1.0f);
-
-		// bind pre-computed IBL data
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->irradianceMap);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->prefilterMap);
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_2D, renderer->brdfLUTTexture);
-
-		//for (int row = 0; row < nrRows; ++row)
-		//{
-
-		//	renderer->mPbrShader->SetUniform1f("metallic", (float)row / (float)nrRows);
-
-		//	for (int col = 0; col < nrColumns; ++col)
-		//	{
-		//		// we clamp the roughness to 0.025 - 1.0 as perfectly smooth surfaces (roughness of 0.0) tend to look a bit off
-		//		// on direct lighting.
-		//		renderer->mPbrShader->SetUniform1f("roughness", glm::clamp((float)col / (float)nrColumns, 0.05f, 1.0f));
-		//		model = glm::mat4(1.0f);
-		//		model = glm::translate(model, glm::vec3(
-		//			(float)(col - (nrColumns / 2)) * spacing,
-		//			(float)(row - (nrRows / 2)) * spacing,
-		//			-2.0f
-		//		));
-		//		renderer->mPbrShader->SetUniformMat4f("model", model);
-		//		renderer->renderSphere();
-
-		//	}
-		//}
-
-
-		//// render light source (simply re-render sphere at light positions)
-		//// this looks a bit off as we use the same shader, but it'll make their positions obvious and 
-		//// keeps the codeprint small.
-		//for (unsigned int i = 0; i < sizeof(lightPositions) / sizeof(lightPositions[0]); ++i)
-		//{
-		//	glm::vec3 newPos = lightPositions[i] + glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
-		//	newPos = lightPositions[i];
-		//	renderer->mPbrShader->SetUniform3f("lightPositions[" + std::to_string(i) + "]", newPos);
-		//	renderer->mPbrShader->SetUniform3f("lightColors[" + std::to_string(i) + "]", lightColors[i]);
-
-		//	model = glm::mat4(1.0f);
-		//	model = glm::translate(model, newPos);
-		//	model = glm::scale(model, glm::vec3(0.5f));
-		//	renderer->mPbrShader->SetUniformMat4f("model", model);
-		//	renderer->renderSphere();
-		//}
-
-
-		// render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
 
 		switch (renderer->mRenderMode)
 		{
@@ -258,12 +202,57 @@ int main()
 		};
 
 		case RenderContext::RenderMode::SHADED:
-		{
+		{	
+
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			
+			// bind pre-computed IBL data
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->irradianceMap);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->prefilterMap);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, renderer->brdfLUTTexture);
+			
+			renderer->mPbrShader->bindShader();
+			renderer->mPbrShader->SetUniformMat4f("view", view);
+			renderer->mPbrShader->SetUniform3f("camPos", camera.getPosition());
 			renderer->mPbrShader->SetUniform3f("albedo", renderer->mAlbedo);
 			renderer->mPbrShader->SetUniform1f("roughness", renderer->mRoughness);
 			renderer->mPbrShader->SetUniform1f("metallic", renderer->mMetallic);
 			renderer->mPbrShader->SetUniformMat4f("model", model);
+			
+			// Light 0
+			if (renderer->mEnableLight0)
+			{
+				renderer->mPbrShader->SetUniform3f("lightPositions[0]", renderer->mLightPos0);
+				renderer->mPbrShader->SetUniform3f("lightColors[0]", renderer->mLightColor0);
+			}
+			else
+			{
+				renderer->mPbrShader->SetUniform3f("lightColors[0]", glm::vec3(0.0));
+			}
+
+			// Light 1
+			if (renderer->mEnableLight1)
+			{
+				renderer->mPbrShader->SetUniform3f("lightPositions[1]", renderer->mLightPos1);
+				renderer->mPbrShader->SetUniform3f("lightColors[1]", renderer->mLightColor1);
+			}
+			else
+			{
+				renderer->mPbrShader->SetUniform3f("lightColors[1]", glm::vec3(0.0));
+			}
+			// Light 2
+			if (renderer->mEnableLight2)
+			{
+				renderer->mPbrShader->SetUniform3f("lightPositions[2]", renderer->mLightPos2);
+				renderer->mPbrShader->SetUniform3f("lightColors[2]", renderer->mLightColor2);
+			}
+			else
+			{
+				renderer->mPbrShader->SetUniform3f("lightColors[2]", glm::vec3(0.0));
+			}
 			assimpModel->Draw();
 			break;
 		};
@@ -335,8 +324,6 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 	//}
 
 	int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
-
-
 
 	float xpos = static_cast<float>(xposIn);
 	float ypos = static_cast<float>(yposIn);
@@ -462,6 +449,10 @@ void loadIBL(std::string fileNameStr = "")
 	{
 		renderer->loadIBL(fileNameStr.c_str());
 	}
+	else
+	{
+		renderer->clearIBL();
+	}
 
 }
 
@@ -502,7 +493,6 @@ void ProcessUI()
 			loadFBX();
 		}
 
-		
 		// TODO: Swap out Shading with renderer.
 		bool modeChanged = ImGui::Combo("Draw Mode", &drawMode, renderer->mRenderModeNames, IM_ARRAYSIZE(renderer->mRenderModeNames));
 		if (modeChanged) { renderer->setRenderMode(static_cast<RenderContext::RenderMode>(drawMode)); }
@@ -510,6 +500,32 @@ void ProcessUI()
 		ImGui::ColorEdit3("Albedo", &renderer->mAlbedo.x);
 		ImGui::SliderFloat("Roughness", &renderer->mRoughness, 0.0f, 1.0f);
 		ImGui::SliderFloat("Metallic", &renderer->mMetallic, 0.0f, 1.0f);
+
+
+		// Light 0
+		ImGui::Checkbox("Enable Light 0", &renderer->mEnableLight0);
+		if (renderer->mEnableLight0)
+		{
+			ImGui::ColorEdit3("Light 0 Color", &renderer->mLightColor0.x);
+			ImGui::SliderFloat3("Light 0 Position", &renderer->mLightPos0[0], -10.0, 10.0);
+		}
+		// Light 1
+		ImGui::Checkbox("Enable Light 1", &renderer->mEnableLight1);
+		if (renderer->mEnableLight1)
+		{
+			ImGui::ColorEdit3("Light 1 Color", &renderer->mLightColor1.x);
+			ImGui::SliderFloat3("Light 1 Position", &renderer->mLightPos1[1], -10.0, 10.0);
+		}
+		// Light 2
+		ImGui::Checkbox("Enable Light 2", &renderer->mEnableLight2);
+		if (renderer->mEnableLight2)
+		{
+			ImGui::ColorEdit3("Light 2 Color", &renderer->mLightColor2.x);
+			ImGui::SliderFloat3("Light 2 Position", &renderer->mLightPos2[2], -10.0, 10.0);
+		}
+
+
+
 
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		ImGui::End();
