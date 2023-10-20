@@ -143,7 +143,6 @@ int main()
 	renderer->mPbrShader->SetUniform1i("brdfLUT", 2);
 	renderer->mPbrShader->SetUniform3f("albedo", 0.5f, 0.0f, 0.0f);
 	renderer->mPbrShader->SetUniform1f("ao", 1.0f);
-
 	renderer->mBackgroundShader->bindShader();
 	renderer->mBackgroundShader->SetUniformMat4f("projection", projection);
 

@@ -4,6 +4,7 @@
 #include "Texture.h"
 #include "Model.h"
 #include <map>
+#include <memory>
 
 
 #define _TEST_CODE
@@ -20,9 +21,10 @@ class RenderContext
 public:
 	// GLFW must be initialized before instantiating this class.
 	RenderContext() {};
+	~RenderContext() { LOG_INFO("Destroying Render Context!"); }
 	RenderContext(GLFWwindow* pWindow);
-	~RenderContext();
 
+	bool mBuffersInitialized = false;
 
 	// For UI selection. These Names should match the RenderMode Enum names.
 	const char* mRenderModeNames[2]{ "Wireframe", "Shaded"};
@@ -41,7 +43,6 @@ public:
 	float mMetallic = 0.5;
 
 	void setRenderMode(int pMode) { mRenderMode = static_cast<RenderMode>(pMode);}
-	Shader* addShader(const char* pShader);
 
 	void resize();
 	void onDisplay();
@@ -64,12 +65,9 @@ public:
 	static unsigned int sphereIndexCount;
 	static void renderSphere();
 
-
-
 	void renderColorIds();
 	void selectObject(double xpos, double ypos);
 
-	int mRenderIBL = 0;
 	void loadIBL(const char* filePath);
 	void clearIBL();
 
@@ -97,43 +95,32 @@ public:
 
 
 	// Leaving these public until I can decouple set uniforms
-	Shader* mPbrShader = nullptr;
-	Shader* mBackgroundShader = nullptr;
-	Shader* mDepthShader = nullptr;
-	Shader* mPostShader = nullptr;
-	Shader* mSkyShader = nullptr;
-	Shader* mColorShader = nullptr;
-	Shader* brdfShader = nullptr;
+	std::unique_ptr<Shader> mPbrShader = nullptr;
+	std::unique_ptr<Shader> mBackgroundShader = nullptr;
+	std::unique_ptr<Shader> mDepthShader = nullptr;
+	std::unique_ptr<Shader> mPostShader = nullptr;
+	std::unique_ptr<Shader> mSkyShader = nullptr;
+	std::unique_ptr<Shader> mColorShader = nullptr;
+	std::unique_ptr<Shader> brdfShader = nullptr;
 	
-	Texture* mDiffuseMap = nullptr;
-	Texture* mNormalMap = nullptr;
-
-	SimpleCube* mSkyCube = new SimpleCube(1.0, false);
-
+	//SimpleCube* mSkyCube = new SimpleCube(1.0, false);
 
 	// FRAME BUFFERS
 	DepthFBO* mDepthFBO = nullptr;
 	ColorFBO* mColorFBO = nullptr;
 
-	// PBR IBL ----------------------------------------------------
-	Texture* mHdrMap = nullptr;
-	Texture* mBrdfLUTTexture = nullptr;
-	
-	Cubemap* mEnvCubeMap = nullptr;
-	Cubemap* mIrradianceCubeMap = nullptr;
-	Cubemap* mPrefilterCubeMap = nullptr;
-	unsigned int brdfLUTTexture;
-
-	Shader* _prefilterShader = nullptr;
+	std::unique_ptr<Cubemap> mEnvCubeMap = nullptr;
+	std::unique_ptr<Cubemap> mIrradianceCubeMap = nullptr;
+	std::unique_ptr<Cubemap> mPrefilterCubeMap = nullptr;
+	std::unique_ptr<Shader> _prefilterShader = nullptr;
 
 
-	// UI Options
 	unsigned int captureFBO, captureRBO;
 	unsigned int irradianceMap;
 	unsigned int envCubemap;
+	unsigned int brdfLUTTexture;
 	unsigned int hdrTexture;
 	unsigned int prefilterMap;
-
 
 private:
 
@@ -146,7 +133,7 @@ private:
 	GLFWwindow* mWindow;
 	const Model* mModel = nullptr;
 
-	Shader* _equirectangularToCubemapShader;
+	std::unique_ptr<Shader> _equirectangularToCubemapShader;
 
 
 	// Render Process shaders 
@@ -155,9 +142,9 @@ private:
 	Cubemap mSkyBox;
 	//Shader mShadowShader;
 
-	bool mBuffersInitialized = false;
 
-	Shader* _irradianceShader;
+
+	std::unique_ptr<Shader> _irradianceShader;
 
 };
 

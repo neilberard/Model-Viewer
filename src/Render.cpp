@@ -2,9 +2,6 @@
 #include "Log.h"
 #include "stb/stb_image.h"
 #include "Debugging.h"
-#include <bitset>
-
-
 
 
 // Initializing Static members.
@@ -22,44 +19,11 @@ RenderContext::RenderContext(GLFWwindow* pWindow) :
 {
 	glfwGetWindowSize(mWindow, &mWidth, &mHeight);
 	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
-	mPbrShader = addShader("../../resources/shaders/pbr.glsl");
-	mBackgroundShader = addShader("../../resources/shaders/background.glsl");	
-	mColorShader = addShader("../../resources/shaders/debug/color.glsl");
-
+	mPbrShader = std::make_unique<Shader>("../../resources/shaders/pbr.glsl");
+	mBackgroundShader = std::make_unique<Shader>("../../resources/shaders/background.glsl");
+	mColorShader = std::make_unique<Shader>("../../resources/shaders/debug/color.glsl");
 }
 
-RenderContext::~RenderContext()
-{
-	LOG_INFO("Deleting RenderContext. Goodbye!");
-	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
-	
-	// TODO This manual clean
-	delete mHdrMap;
-
-	// --- Process IBL SHADERS 
-	delete mEnvCubeMap;
-	delete mIrradianceCubeMap;
-	delete mPrefilterCubeMap;
-
-	// Textures
-	delete mBrdfLUTTexture;
-
-	delete mSkyCube;
-
-	delete mDiffuseMap;
-	delete mNormalMap; 
-
-}
-
-Shader* RenderContext::addShader(const char* pShader)
-{
-	if (mShaderMap.find(pShader) == mShaderMap.end())
-	{
-		Shader* shader = new Shader(pShader);
-		mShaderMap[pShader] = shader;
-	}
-	return mShaderMap[pShader];
-}
 
 void RenderContext::resize()
 {
@@ -169,7 +133,6 @@ void RenderContext::renderSky()
 void RenderContext::reloadShaders()
 {
 	LOG_NOT_IMPLEMENTED_ERROR("Doh! Can't reload shaders.");
-
 }
 
 void RenderContext::renderCube()
@@ -398,9 +361,9 @@ void RenderContext::loadIBL(const char* filePath)
 
 		glGenTextures(1, &hdrTexture);
 
-		_equirectangularToCubemapShader = addShader("../../resources/shaders/equirectangularMap.glsl");
+		_equirectangularToCubemapShader = std::make_unique<Shader>("../../resources/shaders/equirectangularMap.glsl");
 
-		_irradianceShader = addShader("../../resources/shaders/irradiance.glsl");
+		_irradianceShader = std::make_unique<Shader>("../../resources/shaders/irradiance.glsl");
 
 
 		// envCubemap
@@ -447,12 +410,12 @@ void RenderContext::loadIBL(const char* filePath)
 		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 		
-		_prefilterShader = addShader("../../resources/shaders/prefilter.glsl");
+		_prefilterShader = std::make_unique<Shader>("../../resources/shaders/prefilter.glsl");
 		// Prefilter end
 
 
 		// brdf Lut
-		brdfShader = addShader("../../resources/shaders/brdf.glsl");
+		brdfShader = std::make_unique<Shader>("../../resources/shaders/brdf.glsl");
 
 		glGenTextures(1, &brdfLUTTexture);
 
@@ -503,7 +466,6 @@ void RenderContext::loadIBL(const char* filePath)
 		}
 	}
 
-	unsigned int hdrTexture = 0;
 	glBindTexture(GL_TEXTURE_2D, hdrTexture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data); // note how we specify the texture's data value to be float
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -577,7 +539,6 @@ void RenderContext::loadIBL(const char* filePath)
 
 
 	// Prefilter Start
-
 	_prefilterShader->bindShader();
 	_prefilterShader->SetUniform1i("environmentMap", 0);
 	_prefilterShader->SetUniformMat4f("projection", captureProjection);
@@ -633,8 +594,6 @@ void RenderContext::loadIBL(const char* filePath)
 	renderQuad();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	
@@ -642,6 +601,8 @@ void RenderContext::loadIBL(const char* filePath)
 	int scrWidth, scrHeight;
 	glfwGetFramebufferSize(mWindow, &scrWidth, &scrHeight);
 	glViewport(0, 0, scrWidth, scrHeight);
+
+
 }
 
 
