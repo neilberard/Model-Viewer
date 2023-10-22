@@ -19,25 +19,18 @@ RenderContext::RenderContext(GLFWwindow* pWindow) :
 {
 	glfwGetWindowSize(mWindow, &mWidth, &mHeight);
 	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
-	mPbrShader = std::make_unique<Shader>("../../resources/shaders/pbr.glsl");
+	mPbrShader        = std::make_unique<Shader>("../../resources/shaders/pbr.glsl");
 	mBackgroundShader = std::make_unique<Shader>("../../resources/shaders/background.glsl");
-	mColorShader = std::make_unique<Shader>("../../resources/shaders/debug/color.glsl");
+	mColorShader      = std::make_unique<Shader>("../../resources/shaders/debug/color.glsl");
+	mShadowDepth      = std::make_unique<Shader>("../../resources/shaders/shadowDepth.glsl");
+	mDebugDepthShader = std::make_unique<Shader>("../../resources/shaders/debug/depth.glsl");
 }
 
 
 void RenderContext::resize()
 {
-	
 	glfwGetWindowSize(mWindow, &mWidth, &mHeight);
 	LOG_INFO("Resizing window! {} {}", mWidth, mHeight);
-
-
-	delete mDepthFBO;
-	mDepthFBO = new DepthFBO(mWidth, mHeight);
-
-	delete mColorFBO;
-	mColorFBO = new ColorFBO(mWidth, mHeight);
-
 }
 
 void RenderContext::onDisplay()
@@ -53,81 +46,6 @@ void RenderContext::onDisplay()
 		mModel->mMeshes[i]->draw();
 	}
 
-}
-
-void RenderContext::renderShadows()
-{
-	glDisable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
-	glViewport(0, 0, mShadowResolution, mShadowResolution);
-
-	mDepthFBO->bindFBO();
-	mDepthFBO->bindTexture();
-
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_DEPTH_BUFFER_BIT);
-	mDepthShader->bindShader();
-	mDepthShader->SetUniformMat4f("u_LightSpaceMatrix", mLightSpace);
-	mDepthShader->SetUniformMat4f("u_Model", mModelSpace);
-
-	for (unsigned int i = 0; i < mModel->mMeshes.size(); i++)
-	{
-		mModel->mMeshes[i]->draw();
-	}
-
-	mDepthShader->unbindShader();
-	mDepthFBO->unbindFBO();
-	mDepthFBO->unbindTexture();
-}
-
-void RenderContext::renderDiffuse()
-{
-	int width, height;
-	glfwGetWindowSize(mWindow, &width, &height);
-	glViewport(0, 0, width, height);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
-	onDisplay();
-
-}
-
-void RenderContext::renderWireframe()
-{
-	glPolygonMode(GL_FRONT, GL_LINE);
-	glCullFace(GL_BACK);
-	glLineWidth(2.0);
-	mColorShader->bindShader();
-	mColorShader->SetUniform3f("uColor", 1.0f, 0.0f, 0.0f);
-	mColorShader->SetUniform3f("uOffset", 0.0f, 0.0f, 0.0005f);
-
-	for (unsigned int i = 0; i < mModel->mMeshes.size(); i++)
-	{
-		if(mModel->mMeshes[i]->mId == mSelected)
-		{
-			mModel->mMeshes[i]->draw();	
-		}
-	}
-	glLineWidth(1.0);
-	mColorShader->unbindShader();
-}
-
-void RenderContext::renderSky()
-{
-	glCullFace(GL_FRONT);
-	glDepthMask(GL_FALSE);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-	mSkyShader->bindShader();
-	mEnvCubeMap->bindTexture();
-	mSkyShader->SetUniform1i("uSKy", mEnvCubeMap->getSlot());
-	renderCube();
-	mSkyShader->unbindShader();
-	mEnvCubeMap->unbindTexture();
-
-	glCullFace(GL_BACK);
-	glDepthMask(GL_TRUE);
 }
 
 void RenderContext::reloadShaders()
@@ -301,134 +219,121 @@ void RenderContext::renderSphere()
 
 }
 
-void RenderContext::renderColorIds()
+void RenderContext::initialize()
 {
-
-
-	mColorShader->bindShader();
-	
-	mColorFBO->bindFBO();
-	mColorFBO->bindRBO();
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
-	glPolygonMode(GL_FRONT, GL_FILL);
-
-
-	for (unsigned int i = 0; i < mModel->mMeshes.size(); i++)
-	{
-		float val = 1.0f / 255.0f;
-		float color = float(mModel->mMeshes[i]->mId) * val;
-		mColorShader->SetUniform3f("uColor", color, color, color);
-		mModel->mMeshes[i]->draw();
+	if (mInitialized) 
+	{ 
+		LOG_ERROR("Render Context Already Initialized!"); 
+		return;
 	}
-	mColorFBO->unbindFBO();
-	mColorFBO->unbindRBO();
-	mColorShader->unbindShader();
-}
+	// Shader buffers
+	// ------------------------------------------------------------------
+	// Shadow Map
+	GLCall(glGenFramebuffers(1, &depthMapFBO));
+	GLCall(glGenTextures(1, &depthMap));
+	GLCall(glBindTexture(GL_TEXTURE_2D, depthMap));
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 
-void RenderContext::selectObject(double xpos, double ypos)
-{
-	LOG_INFO("Selecting object {} {}", xpos, ypos);
-	mColorFBO->bindFBO();
-	mColorFBO->bindRBO();
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO));
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0));
+
+	GLCall(glDrawBuffer(GL_NONE));
+	GLCall(glReadBuffer(GL_NONE));
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+
+	// IBL Buffers
+	glGenFramebuffers(1, &captureFBO);
+	glGenRenderbuffers(1, &captureRBO);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, captureRBO);
+
+	glGenTextures(1, &hdrTexture);
+
+	_equirectangularToCubemapShader = std::make_unique<Shader>("../../resources/shaders/equirectangularMap.glsl");
+	_irradianceShader = std::make_unique<Shader>("../../resources/shaders/irradiance.glsl");
+
+
+	// envCubemap
+	glGenTextures(1, &envCubemap);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
+	for (unsigned int i = 0; i < 6; ++i)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// envCubemap end
+
+
+	// IrradianceMap
+	glGenTextures(1, &irradianceMap);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
+	for (unsigned int i = 0; i < 6; ++i)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 32, 32, 0, GL_RGB, GL_FLOAT, nullptr);
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// IrradianceMap End
+
+
+	// Prefilter Start
+	glGenTextures(1, &prefilterMap);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
+	for (unsigned int i = 0; i < 6; ++i)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0, GL_RGB, GL_FLOAT, nullptr);
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); // be sure to set minification filter to mip_linear 
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
+	_prefilterShader = std::make_unique<Shader>("../../resources/shaders/prefilter.glsl");
+	// Prefilter end
+
+
+	// brdf Lut
+	brdfShader = std::make_unique<Shader>("../../resources/shaders/brdf.glsl");
+
+	glGenTextures(1, &brdfLUTTexture);
+
+	glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// brdf Lut end
+
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
-	int width, height;
-	glfwGetWindowSize(mWindow, &width, &height);
-
-	unsigned char *image = new unsigned char[(width * height * 3)];
-	glReadPixels(GLuint(xpos), GLuint(height - ypos), width, height, GL_RGB, GL_UNSIGNED_BYTE, image);
-	LOG_INFO("Reading Color Buffer {}", int(image[0]));
-	mSelected = int(image[0]);
-	delete[] image;
-	mColorFBO->unbindFBO();
-	mColorFBO->unbindRBO();
-
+	mBuffersInitialized = true;
 }
 
 void RenderContext::loadIBL(const char* filePath)
 {
 	if (!mBuffersInitialized)
 	{
-
-		glGenFramebuffers(1, &captureFBO);
-		glGenRenderbuffers(1, &captureRBO);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
-		glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, captureRBO);
-
-		glGenTextures(1, &hdrTexture);
-
-		_equirectangularToCubemapShader = std::make_unique<Shader>("../../resources/shaders/equirectangularMap.glsl");
-
-		_irradianceShader = std::make_unique<Shader>("../../resources/shaders/irradiance.glsl");
-
-
-		// envCubemap
-		glGenTextures(1, &envCubemap);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
-		for (unsigned int i = 0; i < 6; ++i)
-		{
-			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
-		}
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		// envCubemap end
-
-
-		// IrradianceMap
-		glGenTextures(1, &irradianceMap);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
-		for (unsigned int i = 0; i < 6; ++i)
-		{
-			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 32, 32, 0, GL_RGB, GL_FLOAT, nullptr);
-		}
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		// IrradianceMap End
-
-
-		// Prefilter Start
-		glGenTextures(1, &prefilterMap);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
-		for (unsigned int i = 0; i < 6; ++i)
-		{
-			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0, GL_RGB, GL_FLOAT, nullptr);
-		}
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); // be sure to set minification filter to mip_linear 
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-		
-		_prefilterShader = std::make_unique<Shader>("../../resources/shaders/prefilter.glsl");
-		// Prefilter end
-
-
-		// brdf Lut
-		brdfShader = std::make_unique<Shader>("../../resources/shaders/brdf.glsl");
-
-		glGenTextures(1, &brdfLUTTexture);
-
-		glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		// brdf Lut end
-
-
-		mBuffersInitialized = true;
+		// IBL
+		initialize();
 	}
 
 	// pbr: load the HDR environment map

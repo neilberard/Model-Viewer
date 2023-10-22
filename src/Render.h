@@ -7,8 +7,6 @@
 #include <memory>
 
 
-#define _TEST_CODE
-
 namespace Render
 {
 	void _renderCube();
@@ -24,15 +22,17 @@ public:
 	~RenderContext() { LOG_INFO("Destroying Render Context!"); }
 	RenderContext(GLFWwindow* pWindow);
 
+	void initialize();
 	bool mBuffersInitialized = false;
 
 	// For UI selection. These Names should match the RenderMode Enum names.
-	const char* mRenderModeNames[2]{ "Wireframe", "Shaded"};
+	const char* mRenderModeNames[3]{ "Wireframe", "Shaded", "Depth"};
 
 	enum RenderMode
 	{
 		WIREFRAME = 0,
-		SHADED = 1,
+		SHADED    = 1,
+		DEPTH     = 2,
 	};
 
 	RenderMode mRenderMode = WIREFRAME;
@@ -46,9 +46,6 @@ public:
 
 	void resize();
 	void onDisplay();
-	void renderShadows();
-	void renderDiffuse();
-	void renderWireframe();
 	void renderSky();
 	void reloadShaders();
 
@@ -94,7 +91,7 @@ public:
 	glm::vec3 mLightPos2 = glm::vec3();
 
 
-	// Leaving these public until I can decouple set uniforms
+	// Shaders
 	std::unique_ptr<Shader> mPbrShader = nullptr;
 	std::unique_ptr<Shader> mBackgroundShader = nullptr;
 	std::unique_ptr<Shader> mDepthShader = nullptr;
@@ -102,9 +99,9 @@ public:
 	std::unique_ptr<Shader> mSkyShader = nullptr;
 	std::unique_ptr<Shader> mColorShader = nullptr;
 	std::unique_ptr<Shader> brdfShader = nullptr;
+	// Debug Shaders
+	std::unique_ptr<Shader> mDebugDepthShader = nullptr;
 	
-	//SimpleCube* mSkyCube = new SimpleCube(1.0, false);
-
 	// FRAME BUFFERS
 	DepthFBO* mDepthFBO = nullptr;
 	ColorFBO* mColorFBO = nullptr;
@@ -112,7 +109,6 @@ public:
 	std::unique_ptr<Cubemap> mEnvCubeMap = nullptr;
 	std::unique_ptr<Cubemap> mIrradianceCubeMap = nullptr;
 	std::unique_ptr<Cubemap> mPrefilterCubeMap = nullptr;
-	std::unique_ptr<Shader> _prefilterShader = nullptr;
 
 
 	unsigned int captureFBO, captureRBO;
@@ -121,6 +117,12 @@ public:
 	unsigned int brdfLUTTexture;
 	unsigned int hdrTexture;
 	unsigned int prefilterMap;
+
+	// Shadows
+	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+	unsigned int depthMapFBO;
+	unsigned int depthMap;
+	std::unique_ptr<Shader> mShadowDepth = nullptr;
 
 private:
 
@@ -133,7 +135,9 @@ private:
 	GLFWwindow* mWindow;
 	const Model* mModel = nullptr;
 
-	std::unique_ptr<Shader> _equirectangularToCubemapShader;
+	std::unique_ptr<Shader> _prefilterShader = nullptr;
+	std::unique_ptr<Shader> _equirectangularToCubemapShader = nullptr;
+	std::unique_ptr<Shader> _irradianceShader = nullptr;
 
 
 	// Render Process shaders 
@@ -141,10 +145,5 @@ private:
 
 	Cubemap mSkyBox;
 	//Shader mShadowShader;
-
-
-
-	std::unique_ptr<Shader> _irradianceShader;
-
 };
 

@@ -17,7 +17,7 @@
 #include "Shader.h"
 #include "Camera.h"
 
-
+#define DEPTH_PASS
 
 // Forward Declarations
 void loadFBX(std::string fileNameStr = "");
@@ -156,6 +156,13 @@ int main()
 
 	assimpModel = new Model();
 	glm::mat4 model = glm::mat4(1.0f);
+	renderer->initialize();
+
+
+
+
+#ifdef DEPTH_PASS
+#endif // DEPTH_PASS
 
 
 	// render loop
@@ -183,6 +190,7 @@ int main()
 		// render scene, supplying the convoluted irradiance map to the final shader.
 		// --------------------------------------------------------------------------
 
+
 		switch (renderer->mRenderMode)
 		{
 
@@ -201,8 +209,13 @@ int main()
 		};
 
 		case RenderContext::RenderMode::SHADED:
-		{	
-
+		{
+			// Render Shadows
+			
+			
+			// Render PBR
+			glViewport(0, 0, scrWidth, scrHeight);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			
 			// bind pre-computed IBL data
@@ -256,16 +269,43 @@ int main()
 			break;
 		};
 
+		case RenderContext::RenderMode::DEPTH:
+		{
+			// Render Shadows
+			glViewport(0, 0, renderer->SHADOW_WIDTH, renderer->SHADOW_HEIGHT);
+			GLCall(glBindFramebuffer(GL_FRAMEBUFFER, renderer->depthMapFBO));
+			glClear(GL_DEPTH_BUFFER_BIT);
+			glBindTexture(GL_TEXTURE_2D, renderer->depthMap);
+
+			float near_plane = 1.0f, far_plane = 7.5f;
+			glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+			glm::mat4 lightView = glm::lookAt(renderer->mLightPos0, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
+			glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+			renderer->mShadowDepth->bindShader();
+			renderer->mShadowDepth->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
+			renderer->mShadowDepth->SetUniformMat4f("model", model);
+			assimpModel->Draw();
+
+			// Draw Debug Texture.
+			glViewport(0, 0, scrWidth, scrHeight);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			renderer->mDebugDepthShader->bindShader();
+			renderer->mDebugDepthShader->SetUniform1i("depthMap", 0);
+			renderer->renderQuad();
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			break;
 		}
 
+		}
+
+		// Render Background
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		renderer->mBackgroundShader->bindShader();
 		renderer->mBackgroundShader->SetUniformMat4f("view", view);
-		
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->envCubemap);
-		
-		// Render Background
 		renderer->renderCube();
 
 
