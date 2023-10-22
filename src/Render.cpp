@@ -33,21 +33,6 @@ void RenderContext::resize()
 	LOG_INFO("Resizing window! {} {}", mWidth, mHeight);
 }
 
-void RenderContext::onDisplay()
-{
-
-	if (mModel == nullptr || !mModel->mLoaded)
-	{
-		return;
-	}
-
-	for (unsigned int i = 0; i < mModel->mMeshes.size(); i++)
-	{
-		mModel->mMeshes[i]->draw();
-	}
-
-}
-
 void RenderContext::reloadShaders()
 {
 	LOG_NOT_IMPLEMENTED_ERROR("Doh! Can't reload shaders.");

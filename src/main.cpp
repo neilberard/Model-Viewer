@@ -189,6 +189,23 @@ int main()
 
 		// render scene, supplying the convoluted irradiance map to the final shader.
 		// --------------------------------------------------------------------------
+		// Render Shadow Depth
+		glViewport(0, 0, renderer->SHADOW_WIDTH, renderer->SHADOW_HEIGHT);
+		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, renderer->depthMapFBO));
+		glClear(GL_DEPTH_BUFFER_BIT);
+		glBindTexture(GL_TEXTURE_2D, renderer->depthMap);
+
+		float near_plane = 1.0f, far_plane = 7.5f;
+		glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+		glm::mat4 lightView = glm::lookAt(renderer->mLightPos0, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+		renderer->mShadowDepth->bindShader();
+		renderer->mShadowDepth->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
+		renderer->mShadowDepth->SetUniformMat4f("model", model);
+		assimpModel->Draw();
+		glViewport(0, 0, scrWidth, scrHeight);
+		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
 
 		switch (renderer->mRenderMode)
@@ -204,8 +221,7 @@ int main()
 			renderer->mColorShader->SetUniformMat4f("model", model);
 			renderer->mColorShader->SetUniform3f("albedo", renderer->mAlbedo);
 			assimpModel->Draw();
-			break;
-				
+			break;	
 		};
 
 		case RenderContext::RenderMode::SHADED:
@@ -271,24 +287,8 @@ int main()
 
 		case RenderContext::RenderMode::DEPTH:
 		{
-			// Render Shadows
-			glViewport(0, 0, renderer->SHADOW_WIDTH, renderer->SHADOW_HEIGHT);
-			GLCall(glBindFramebuffer(GL_FRAMEBUFFER, renderer->depthMapFBO));
-			glClear(GL_DEPTH_BUFFER_BIT);
-			glBindTexture(GL_TEXTURE_2D, renderer->depthMap);
-
-			float near_plane = 1.0f, far_plane = 7.5f;
-			glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-			glm::mat4 lightView = glm::lookAt(renderer->mLightPos0, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
-			glm::mat4 lightSpaceMatrix = lightProjection * lightView;
-
-			renderer->mShadowDepth->bindShader();
-			renderer->mShadowDepth->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
-			renderer->mShadowDepth->SetUniformMat4f("model", model);
-			assimpModel->Draw();
-
 			// Draw Debug Texture.
-			glViewport(0, 0, scrWidth, scrHeight);
+
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			renderer->mDebugDepthShader->bindShader();

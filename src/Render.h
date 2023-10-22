@@ -45,13 +45,12 @@ public:
 	void setRenderMode(int pMode) { mRenderMode = static_cast<RenderMode>(pMode);}
 
 	void resize();
-	void onDisplay();
-	void renderSky();
 	void reloadShaders();
 
 	// Render Cube
 	static unsigned int cubeVAO;
 	static unsigned int cubeVBO;
+
 	static void renderCube();
 	static void renderQuad() { Render::_renderQuad(); }
 
@@ -61,9 +60,6 @@ public:
 	static unsigned int sphereEbo;
 	static unsigned int sphereIndexCount;
 	static void renderSphere();
-
-	void renderColorIds();
-	void selectObject(double xpos, double ypos);
 
 	void loadIBL(const char* filePath);
 	void clearIBL();
