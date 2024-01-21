@@ -7,17 +7,20 @@ layout (location = 2) in vec2 aTexCoords;
 out vec2 TexCoords;
 out vec3 WorldPos;
 out vec3 Normal;
+out vec4 FragPosLightSpace;
 
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
+uniform mat4 lightSpaceMatrix;
+
 
 void main()
 {
     TexCoords = aTexCoords;
     WorldPos = vec3(model * vec4(aPos, 1.0));
     Normal = mat3(model) * aNormal;   
-
+	FragPosLightSpace = lightSpaceMatrix * vec4(WorldPos, 1.0);
     gl_Position =  projection * view * vec4(WorldPos, 1.0);
 }
 
@@ -28,6 +31,7 @@ out vec4 FragColor;
 in vec2 TexCoords;
 in vec3 WorldPos;
 in vec3 Normal;
+in vec4 FragPosLightSpace;
 
 // material parameters
 uniform vec3 albedo;
@@ -35,10 +39,19 @@ uniform float metallic;
 uniform float roughness;
 uniform float ao;
 
+// Shadow
+uniform float bias;
+uniform sampler2D shadowMap;
+
 // IBL
+
+uniform float environmentLightIntensity;
 uniform samplerCube irradianceMap;
 uniform samplerCube prefilterMap;
 uniform sampler2D brdfLUT;
+
+uniform float iblIntensity;
+
 
 // lights
 uniform vec3 lightPositions[4];
@@ -91,7 +104,39 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}   
+}
+
+float ShadowCalculation(vec4 fragPosLightSpace, float bias)
+{
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	
+	projCoords = projCoords * 0.5 + 0.5;
+
+	float currentDepth = projCoords.z;
+	
+	float shadow = 0.0;
+	if(projCoords.z > 1.0)
+	{
+		shadow = 0.0;
+		return shadow;
+	}
+	
+	vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+	for(int x = -1; x <=1; ++x)
+	{
+		
+		for(int y = -1; y <= 1; ++y)
+		{
+			float pcfDpeth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+			shadow += currentDepth - bias > pcfDpeth ? 1.0 : 0.0;	
+		}
+		
+	}
+	shadow /= 9.0;
+	return shadow;
+}
+
+
 // ----------------------------------------------------------------------------
 void main()
 {		
@@ -106,14 +151,35 @@ void main()
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
+	
+	
+
     for(int i = 0; i < 4; ++i) 
     {
         // calculate per-light radiance
         vec3 L = normalize(lightPositions[i] - WorldPos);
+		
+		
         vec3 H = normalize(V + L);
         float distance = length(lightPositions[i] - WorldPos);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = lightColors[i] * attenuation;
+
+
+		// Calulate per-light shadow
+		vec3 lightDir = normalize(lightPositions[i]);
+		float outbias = max(0.05 * (1.0 - dot(N, lightDir)), bias);
+		float shadow = 0.0;
+		
+		// Only render shadow on the first light for now.
+		if (i == 0)
+		{
+		shadow = ShadowCalculation(FragPosLightSpace, outbias);
+		}
+		float light_intensity = attenuation - shadow;
+		
+		light_intensity = light_intensity > 0.0 ? light_intensity : 0.0;
+		vec3 radiance = (lightColors[i] * light_intensity * 5.0);
+		
 
         // Cook-Torrance BRDF
         float NDF = DistributionGGX(N, H, roughness);   
@@ -158,14 +224,13 @@ void main()
     vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
     vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
 
-    vec3 ambient = (kD * diffuse + specular) * ao;
-    
+    vec3 ambient = (kD * diffuse + specular) * ao * environmentLightIntensity;
+    	
     vec3 color = ambient + Lo;
 
     // HDR tonemapping
     color = color / (color + vec3(1.0));
     // gamma correct
     color = pow(color, vec3(1.0/2.2)); 
-
     FragColor = vec4(color , 1.0);
 }

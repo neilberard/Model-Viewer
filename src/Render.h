@@ -23,6 +23,9 @@ public:
 	RenderContext(GLFWwindow* pWindow);
 
 	void initialize();
+
+
+
 	bool mBuffersInitialized = false;
 
 	// For UI selection. These Names should match the RenderMode Enum names.
@@ -36,6 +39,9 @@ public:
 	};
 
 	RenderMode mRenderMode = WIREFRAME;
+
+	float mShadowBias = 0.001;
+	float mEnvironmentLightIntensity = 1.0;
 	
 	// Shader Parameter Values.
 	glm::vec3 mAlbedo = glm::vec3(0.5);
@@ -115,17 +121,18 @@ public:
 	unsigned int prefilterMap;
 
 	// Shadows
-	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+	const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 	unsigned int depthMapFBO;
 	unsigned int depthMap;
 	std::unique_ptr<Shader> mShadowDepth = nullptr;
 
+	int mWindowWidth = 0;
+	int mWindowHeight = 0;
+
+
 private:
 
 	std::map<const char*, Shader*> mShaderMap;
-
-	int mWidth = 0;
-	int mHeight = 0;
 
 	bool mInitialized = false;
 	GLFWwindow* mWindow;

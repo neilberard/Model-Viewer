@@ -17,19 +17,22 @@
 #include "Shader.h"
 #include "Camera.h"
 
-#define DEPTH_PASS
 
 // Forward Declarations
 void loadFBX(std::string fileNameStr = "");
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void resize(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
-void renderSphere();
-void renderCube();
 void ProcessUI();
 
 Model* assimpModel = nullptr;
+
+int irradiance_tex = 0;
+int prefilter_tex = 1;
+int brdfLUTTexture_tex = 2;
+int depthmap_tex = 3;
+int envCubemap_tex = 4;
 
 
 // settings
@@ -71,6 +74,7 @@ int main()
 	// glfw window creation
 	// --------------------
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+	
 	glfwMakeContextCurrent(window);
 	if (window == NULL)
 	{
@@ -79,7 +83,7 @@ int main()
 		return -1;
 	}
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetCursorPosCallback(window, resize);
 	glfwSetScrollCallback(window, scroll_callback);
 
 	// tell GLFW to capture our mouse
@@ -138,9 +142,9 @@ int main()
 
 	renderer->mPbrShader->bindShader();
 	renderer->mPbrShader->SetUniformMat4f("projection", projection);
-	renderer->mPbrShader->SetUniform1i("irradianceMap", 0);
-	renderer->mPbrShader->SetUniform1i("prefilterMap", 1);
-	renderer->mPbrShader->SetUniform1i("brdfLUT", 2);
+	renderer->mPbrShader->SetUniform1i("irradianceMap", irradiance_tex);
+	renderer->mPbrShader->SetUniform1i("prefilterMap", prefilter_tex);
+	renderer->mPbrShader->SetUniform1i("brdfLUT", brdfLUTTexture_tex);
 	renderer->mPbrShader->SetUniform3f("albedo", 0.5f, 0.0f, 0.0f);
 	renderer->mPbrShader->SetUniform1f("ao", 1.0f);
 	renderer->mBackgroundShader->bindShader();
@@ -150,19 +154,15 @@ int main()
 	renderer->mColorShader->SetUniformMat4f("projection", projection);
 
 	// then before rendering, configure the viewport to the original framebuffer's screen dimensions
-	int scrWidth, scrHeight;
-	glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
-	glViewport(0, 0, scrWidth, scrHeight);
+
+	glViewport(0, 0, renderer->mWindowWidth, renderer->mWindowHeight);
 
 	assimpModel = new Model();
 	glm::mat4 model = glm::mat4(1.0f);
 	renderer->initialize();
 
 
-
-
-#ifdef DEPTH_PASS
-#endif // DEPTH_PASS
+	
 
 
 	// render loop
@@ -190,9 +190,15 @@ int main()
 		// render scene, supplying the convoluted irradiance map to the final shader.
 		// --------------------------------------------------------------------------
 		// Render Shadow Depth
+		// TODO: Hack for now, setup proper texture index value.
+		unsigned int shadowMap = 1;
+
+
+
 		glViewport(0, 0, renderer->SHADOW_WIDTH, renderer->SHADOW_HEIGHT);
 		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, renderer->depthMapFBO));
 		glClear(GL_DEPTH_BUFFER_BIT);
+		glActiveTexture(GL_TEXTURE0 + depthmap_tex);
 		glBindTexture(GL_TEXTURE_2D, renderer->depthMap);
 
 		float near_plane = 1.0f, far_plane = 7.5f;
@@ -203,9 +209,16 @@ int main()
 		renderer->mShadowDepth->bindShader();
 		renderer->mShadowDepth->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
 		renderer->mShadowDepth->SetUniformMat4f("model", model);
+
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
+
 		assimpModel->Draw();
-		glViewport(0, 0, scrWidth, scrHeight);
+		glViewport(0, 0, renderer->mWindowWidth, renderer->mWindowHeight);
 		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+		glCullFace(GL_BACK);
+
+
 
 
 		switch (renderer->mRenderMode)
@@ -215,7 +228,6 @@ int main()
 		{
 			// Debug WireFrame
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			glCullFace(GL_BACK);
 			renderer->mColorShader->bindShader();
 			renderer->mColorShader->SetUniformMat4f("view", view);
 			renderer->mColorShader->SetUniformMat4f("model", model);
@@ -226,20 +238,20 @@ int main()
 
 		case RenderContext::RenderMode::SHADED:
 		{
-			// Render Shadows
-			
+
 			
 			// Render PBR
-			glViewport(0, 0, scrWidth, scrHeight);
+			glViewport(0, 0, renderer->mWindowWidth, renderer->mWindowHeight);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 			
 			// bind pre-computed IBL data
-			glActiveTexture(GL_TEXTURE0);
+			glActiveTexture(GL_TEXTURE0 + irradiance_tex);
 			glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->irradianceMap);
-			glActiveTexture(GL_TEXTURE1);
+			glActiveTexture(GL_TEXTURE0 + prefilter_tex);
 			glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->prefilterMap);
-			glActiveTexture(GL_TEXTURE2);
+			glActiveTexture(GL_TEXTURE0 + brdfLUTTexture_tex);
 			glBindTexture(GL_TEXTURE_2D, renderer->brdfLUTTexture);
 			
 			renderer->mPbrShader->bindShader();
@@ -249,6 +261,10 @@ int main()
 			renderer->mPbrShader->SetUniform1f("roughness", renderer->mRoughness);
 			renderer->mPbrShader->SetUniform1f("metallic", renderer->mMetallic);
 			renderer->mPbrShader->SetUniformMat4f("model", model);
+			renderer->mPbrShader->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
+			renderer->mPbrShader->SetUniform1i("shadowMap", depthmap_tex);
+			renderer->mPbrShader->SetUniform1f("bias", renderer->mShadowBias);
+			renderer->mPbrShader->SetUniform1f("environmentLightIntensity", renderer->mEnvironmentLightIntensity);
 			
 			// Light 0
 			if (renderer->mEnableLight0)
@@ -292,7 +308,7 @@ int main()
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			renderer->mDebugDepthShader->bindShader();
-			renderer->mDebugDepthShader->SetUniform1i("depthMap", 0);
+			renderer->mDebugDepthShader->SetUniform1i("depthMap", depthmap_tex);
 			renderer->renderQuad();
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			break;
@@ -302,11 +318,14 @@ int main()
 
 		// Render Background
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		glActiveTexture(GL_TEXTURE0 + envCubemap_tex);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->envCubemap);
 		renderer->mBackgroundShader->bindShader();
 		renderer->mBackgroundShader->SetUniformMat4f("view", view);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->envCubemap);
+		renderer->mBackgroundShader->SetUniform1i("environmentMap", envCubemap_tex);
+		glCullFace(GL_FRONT);
 		renderer->renderCube();
+
 
 
 		ProcessUI();
@@ -349,13 +368,21 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	// make sure the viewport matches the new window dimensions; note that width and 
 	// height will be significantly larger than specified on retina displays.
-	glViewport(0, 0, width, height);
+	if (renderer != nullptr)
+	{
+		renderer->mWindowWidth = width;
+		renderer->mWindowHeight = height;
+
+	}
+
+	//glViewport(0, 0, width, height);
+
 }
 
 
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
-void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
+void resize(GLFWwindow* window, double xposIn, double yposIn)
 {
 	//if (!processMouse)
 	//{
@@ -540,7 +567,8 @@ void ProcessUI()
 		ImGui::SliderFloat("Roughness", &renderer->mRoughness, 0.0f, 1.0f);
 		ImGui::SliderFloat("Metallic", &renderer->mMetallic, 0.0f, 1.0f);
 
-
+		ImGui::SliderFloat("Environment Light Intensity", &renderer->mEnvironmentLightIntensity, 0.0f, 1.0f);
+		ImGui::SliderFloat("Bias", &renderer->mShadowBias, 0.0f, 0.05f);
 		// Light 0
 		ImGui::Checkbox("Enable Light 0", &renderer->mEnableLight0);
 		if (renderer->mEnableLight0)

@@ -17,7 +17,7 @@ unsigned int RenderContext::sphereIndexCount = 0;
 RenderContext::RenderContext(GLFWwindow* pWindow) : 
 	mWindow(pWindow)
 {
-	glfwGetWindowSize(mWindow, &mWidth, &mHeight);
+	glfwGetWindowSize(mWindow, &mWindowWidth, &mWindowHeight);
 	// ------------ Create all Pointer data, remember to delete them in the destructor ------------
 	mPbrShader        = std::make_unique<Shader>("../../resources/shaders/pbr.glsl");
 	mBackgroundShader = std::make_unique<Shader>("../../resources/shaders/background.glsl");
@@ -29,8 +29,8 @@ RenderContext::RenderContext(GLFWwindow* pWindow) :
 
 void RenderContext::resize()
 {
-	glfwGetWindowSize(mWindow, &mWidth, &mHeight);
-	LOG_INFO("Resizing window! {} {}", mWidth, mHeight);
+	glfwGetWindowSize(mWindow, &mWindowWidth, &mWindowHeight);
+	LOG_INFO("Resizing window! {} {}", mWindowWidth, mWindowHeight);
 }
 
 void RenderContext::reloadShaders()
@@ -220,8 +220,10 @@ void RenderContext::initialize()
 	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER));
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO));
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0));
